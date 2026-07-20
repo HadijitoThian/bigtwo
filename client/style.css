@@ -217,8 +217,54 @@ button.secondary { background: #455a64; color: #fff; }
   background: #ffb300;
   color: #222;
   border-radius: 20px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
+
+/* Timer */
+#timer-container {
+  width: 100%;
+  max-width: 300px;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  margin: 0 auto 8px;
+  position: relative;
+}
+#timer-bar {
+  height: 100%;
+  background: #ffb300;
+  border-radius: 3px;
+  transition: width 1s linear;
+  width: 0%;
+}
+#timer-bar.warning { background: #ff6f00; }
+#timer-bar.critical { background: #d32f2f; animation: pulse 0.5s infinite; }
+#timer-text {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffd54f;
+  margin-bottom: 8px;
+  min-height: 16px;
+}
+
+/* Header buttons */
+#header-buttons {
+  display: flex;
+  gap: 4px;
+}
+.icon-btn {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.2); }
 
 #last-card-alert {
   background: #d32f2f;

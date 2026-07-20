@@ -13,6 +13,7 @@
   <div class="lobby-container">
     <h1>🂡 Big Two</h1>
     <p class="tagline">Online multiplayer</p>
+    <button id="sound-toggle-btn-lobby" class="icon-btn" style="margin-bottom:16px" onclick="window.toggleSound?.()">🔊</button>
 
     <div id="join-section">
       <input type="text" id="playerName" placeholder="Your name" maxlength="20">
@@ -58,6 +59,10 @@
   <div id="game-main">
   <header>
     <h1>🂡 <span id="game-room-code"></span></h1>
+    <div id="header-buttons">
+      <button id="sound-toggle-btn" class="icon-btn" onclick="window.toggleSound?.()">🔊</button>
+      <button id="reconnect-btn" class="icon-btn" title="Reconnect">🔄</button>
+    </div>
     <div id="match-info-bar">
       <div id="round-indicator">Round 1 / 12</div>
       <div id="cumulative-scores"></div>
@@ -68,6 +73,10 @@
 
   <div id="table-area">
     <div id="turn-indicator">—</div>
+    <div id="timer-container">
+      <div id="timer-bar"></div>
+      <span id="timer-text"></span>
+    </div>
     <div id="last-card-alert" class="hidden">⚠️ <span id="last-card-text"></span></div>
     <div id="table-play">
       <div class="label">Table Play</div>

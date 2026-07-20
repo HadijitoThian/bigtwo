@@ -1,3 +1,71 @@
+import { playCardSound, playTurnSound, playWinSound, playErrorSound, playTimerWarningSound } from './sounds.js';
+
+// ===== SOUND TOGGLE =====
+let soundEnabled = true;
+try {
+  soundEnabled = localStorage.getItem('bigtwo_sound') !== 'off';
+} catch {}
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  try { localStorage.setItem('bigtwo_sound', soundEnabled ? 'on' : 'off'); } catch {}
+  renderSoundBtn();
+}
+function renderSoundBtn() {
+  const icon = soundEnabled ? '🔊' : '🔇';
+  const btns = document.querySelectorAll('#sound-toggle-btn, #sound-toggle-btn-lobby');
+  btns.forEach(b => b.textContent = icon);
+}
+
+// ===== TIMER =====
+const TURN_TIME = 45; // seconds per turn
+let timerInterval = null;
+let timerSeconds = 0;
+let timerRunning = false;
+
+function startTimer() {
+  clearTimer();
+  timerSeconds = TURN_TIME;
+  timerRunning = true;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerDisplay();
+    // Warning sound at 15 seconds
+    if (timerSeconds === 15) {
+      if (soundEnabled) playTimerWarningSound();
+      const bar = $('timer-bar');
+      if (bar) bar.classList.add('warning');
+    }
+    // Auto-pass at 0
+    if (timerSeconds <= 0) {
+      clearTimer();
+      socket.emit('pass');
+      selected.clear();
+    }
+  }, 1000);
+}
+
+function clearTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+  timerRunning = false;
+  timerSeconds = 0;
+  const bar = $('timer-bar');
+  if (bar) { bar.style.width = '0%'; bar.classList.remove('warning'); }
+  $('timer-text').textContent = '';
+}
+
+function updateTimerDisplay() {
+  const pct = (timerSeconds / TURN_TIME) * 100;
+  const bar = $('timer-bar');
+  if (bar) {
+    bar.style.width = pct + '%';
+    if (timerSeconds <= 5) bar.classList.add('critical');
+    else bar.classList.remove('critical');
+  }
+  $('timer-text').textContent = timerSeconds + 's';
+}
+
 const socket = io({
   reconnection: true,
   reconnectionAttempts: Infinity,
@@ -14,13 +82,39 @@ let lastRoomCode = null;
 let lastPlayerName = null;
 
 // Keep socket alive when tab is backgrounded (mobile/browser suspends JS)
-// Send periodic pings to prevent idle timeout
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && socket.disconnected) {
-    console.log('Tab visible again, connecting...');
-    socket.connect();
+  if (document.visibilityState === 'visible') {
+    if (socket.disconnected) {
+      console.log('Tab visible again, reconnecting...');
+      socket.connect();
+    }
+    // Resume audio context if suspended
+    try { audioCtx?.resume(); } catch {}
+  }
+  // Save reconnect data when leaving
+  if (document.visibilityState === 'hidden') {
+    try {
+      if (lastRoomCode && lastPlayerName) {
+        sessionStorage.setItem('bigtwo_room', lastRoomCode);
+        sessionStorage.setItem('bigtwo_name', lastPlayerName);
+      }
+    } catch {}
   }
 });
+
+// On page load, check if we were in a room
+(function restoreSession() {
+  try {
+    const savedRoom = sessionStorage.getItem('bigtwo_room');
+    const savedName = sessionStorage.getItem('bigtwo_name');
+    if (savedRoom && savedName) {
+      lastRoomCode = savedRoom;
+      lastPlayerName = savedName;
+      myName = savedName;
+      els.playerName.value = savedName;
+    }
+  } catch {}
+})();
 
 socket.on('connect', () => {
   console.log('Connected');
@@ -135,6 +229,7 @@ els.startMatchBtn.onclick = () => {
 els.playBtn.onclick = () => {
   if (selected.size === 0) return;
   const indices = [...selected].sort((a, b) => a - b);
+  if (soundEnabled) playCardSound();
   socket.emit('play', { cardIndices: indices });
   selected.clear();
 };
@@ -162,6 +257,24 @@ els.stopMatchBtn2.onclick = () => {
 };
 
 els.closeMatchEnd.onclick = () => els.matchEndModal.classList.add('hidden');
+
+// Sound toggle (exposed globally for inline onclick)
+window.toggleSound = () => {
+  toggleSound();
+};
+
+// Reconnect button
+$('reconnect-btn').onclick = () => {
+  const name = myName || lastPlayerName;
+  const code = lastRoomCode;
+  if (name && code) {
+    socket.emit('reconnect', { code, name });
+    showError('Reconnecting...');
+  } else {
+    showError('No active room to reconnect to');
+  }
+  renderSoundBtn();
+};
 
 // ===== PROFILE =====
 
@@ -275,11 +388,45 @@ socket.on('chatMessage', (msg) => {
 
 socket.on('state', (s) => {
   const prevState = state?.state;
+  const prevPlayer = state?.game?.currentPlayer;
+  const prevMyIdx = state?.game?.myIndex;
   state = s;
   // Remember room code for reconnect
   if (s.code) { lastRoomCode = s.code; lastPlayerName = myName; }
   selected.clear();
   hints = [];
+
+  // ===== SOUNDS =====
+  if (soundEnabled) {
+    const g = s.game;
+    const prevG = prevState ? state?.game : null;
+    // Round winner detected (game just finished)
+    if (g?.state === 'FINISHED' && prevState === 'PLAYING') {
+      playWinSound();
+    }
+    // Error from server
+    // My turn just started
+    if (g?.state === 'PLAYING' && g?.myIndex === g?.currentPlayer &&
+        (prevMyIdx !== g?.currentPlayer || !prevG)) {
+      playTurnSound();
+    }
+  }
+
+  // ===== TIMER =====
+  const g = s.game;
+  if (g?.state === 'PLAYING' && g?.myIndex === g?.currentPlayer && g?.tablePlay !== null) {
+    // My turn, table has a play to beat → start timer
+    if (!timerRunning || prevMyIdx !== g?.currentPlayer) {
+      startTimer();
+    }
+  } else if (g?.state === 'PLAYING' && g?.myIndex === g?.currentPlayer && g?.tablePlay === null) {
+    // Free play — start timer
+    if (!timerRunning) startTimer();
+  } else {
+    // Not my turn → clear timer
+    clearTimer();
+  }
+
   render();
 
   // Show modals on transitions
@@ -300,6 +447,7 @@ socket.on('hints', (h) => {
 });
 
 function showError(msg) {
+  if (soundEnabled) playErrorSound();
   // Show in lobby error if visible, otherwise game error
   const lobbyError = $('lobby-error');
   if (lobbyError && lobbyError.offsetParent !== null) {
@@ -562,3 +710,4 @@ function renderMatchEnd() {
 }
 
 render();
+renderSoundBtn();
