@@ -371,6 +371,20 @@ els.chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') els.chatSendBtn.click();
 });
 
+// ===== CHAT MOBILE TOGGLE =====
+$('chat-toggle-btn').onclick = () => {
+  $('chat-sidebar').classList.add('open');
+  $('chat-toggle-btn').style.display = 'none';
+};
+$('chat-close-btn').onclick = () => {
+  $('chat-sidebar').classList.remove('open');
+  $('chat-toggle-btn').style.display = '';
+};
+// On desktop, ensure chat is visible
+if (window.innerWidth >= 769) {
+  $('chat-sidebar').style.display = 'flex';
+}
+
 socket.on('chatMessage', (msg) => {
   if (!msg) return;
   const div = document.createElement('div');

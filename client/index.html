@@ -106,13 +106,17 @@
 
   <!-- Chat -->
   <div id="chat-sidebar">
-    <div id="chat-header">Chat</div>
+    <div id="chat-header">
+      <span>Chat</span>
+      <button class="close-chat" id="chat-close-btn">✕</button>
+    </div>
     <div id="chat-messages"></div>
     <div id="chat-input-row">
       <input type="text" id="chat-input" placeholder="Type a message..." maxlength="300">
       <button id="chat-send-btn">Send</button>
     </div>
   </div>
+  <button id="chat-toggle-btn" title="Open chat">💬</button>
 </div>
 
 <!-- ROUND END MODAL -->
