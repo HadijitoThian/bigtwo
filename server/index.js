@@ -65,7 +65,7 @@ io.on('connection', (socket) => {
       const room = manager.findRoomBySocket(socket.id);
       if (!room) throw new Error('Not in a room');
       if (socket.id !== room.hostSocketId) throw new Error('Only host can start');
-      if (room.players.length < 3) throw new Error('Need at least 3 players');
+      if (room.players.length < 2) throw new Error('Need at least 2 players');
       room.startMatch({ betPerPoint, totalRounds });
       broadcastRoom(room);
       console.log(`Match started in room ${room.code}`);

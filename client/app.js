@@ -139,6 +139,12 @@ socket.on('hints', (h) => {
 });
 
 function showError(msg) {
+  // Show in lobby error if visible, otherwise game error
+  const lobbyError = $('lobby-error');
+  if (lobbyError && lobbyError.offsetParent !== null) {
+    lobbyError.textContent = msg;
+    setTimeout(() => { lobbyError.textContent = ''; }, 3500);
+  }
   els.errorMsg.textContent = msg;
   setTimeout(() => { els.errorMsg.textContent = ''; }, 3500);
 }
