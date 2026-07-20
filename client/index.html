@@ -54,6 +54,7 @@
 
 <!-- GAME SCREEN -->
 <div id="game-screen" class="hidden">
+  <div id="game-main">
   <header>
     <h1>🂡 <span id="game-room-code"></span></h1>
     <div id="match-info-bar">
@@ -90,6 +91,17 @@
 
   <div id="stop-match-container">
     <button id="stopMatchBtn">Stop Match</button>
+  </div>
+  </div><!-- /game-main -->
+
+  <!-- Chat -->
+  <div id="chat-sidebar">
+    <div id="chat-header">Chat</div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Type a message..." maxlength="300">
+      <button id="chat-send-btn">Send</button>
+    </div>
   </div>
 </div>
 

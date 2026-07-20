@@ -53,6 +53,12 @@ io.on('connection', (socket) => {
       const room = manager.getRoom(code);
       if (!room) throw new Error('Room not found');
       room.addPlayer(socket.id, name.trim());
+      // Send chat history to the new player
+      if (room.chatHistory?.length > 0) {
+        for (const msg of room.chatHistory.slice(-50)) {
+          socket.emit('chatMessage', msg);
+        }
+      }
       broadcastRoom(room);
       console.log(`${name} joined room ${room.code}`);
     } catch (e) {
@@ -152,6 +158,36 @@ io.on('connection', (socket) => {
       player.connected = true;
       broadcastRoom(room);
       console.log(`${name} reconnected to room ${room.code}`);
+    } catch (e) {
+      socket.emit('error', e.message);
+    }
+  });
+
+  // ===== CHAT =====
+
+  socket.on('chatMessage', ({ message } = {}) => {
+    try {
+      if (!message?.trim()) return;
+      const room = manager.findRoomBySocket(socket.id);
+      if (!room) return;
+      const player = room.getPlayerBySocket(socket.id);
+      if (!player) return;
+      const chatMsg = {
+        from: player.name,
+        fromIndex: player.index,
+        text: message.trim(),
+        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      };
+      room.chatHistory = room.chatHistory || [];
+      room.chatHistory.push(chatMsg);
+      // Keep last 200 messages
+      if (room.chatHistory.length > 200) room.chatHistory = room.chatHistory.slice(-200);
+      // Send to all connected players
+      for (const p of room.players) {
+        if (p.connected) {
+          io.to(p.socketId).emit('chatMessage', chatMsg);
+        }
+      }
     } catch (e) {
       socket.emit('error', e.message);
     }

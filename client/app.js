@@ -54,6 +54,10 @@ const els = {
   matchEndModal: $('match-end-modal'),
   matchEndBody: $('match-end-body'),
   closeMatchEnd: $('closeMatchEnd'),
+  // Chat
+  chatMessages: $('chat-messages'),
+  chatInput: $('chat-input'),
+  chatSendBtn: $('chat-send-btn'),
 };
 
 // ===== LOBBY =====
@@ -111,6 +115,31 @@ els.stopMatchBtn2.onclick = () => {
 };
 
 els.closeMatchEnd.onclick = () => els.matchEndModal.classList.add('hidden');
+
+// ===== CHAT =====
+
+els.chatSendBtn.onclick = () => {
+  const msg = els.chatInput.value.trim();
+  if (!msg) return;
+  socket.emit('chatMessage', { message: msg });
+  els.chatInput.value = '';
+};
+els.chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') els.chatSendBtn.click();
+});
+
+socket.on('chatMessage', (msg) => {
+  if (!msg) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.innerHTML = `
+    <span class="chat-sender p${msg.fromIndex}">${msg.from}</span>
+    <span class="chat-time">${msg.time}</span><br>
+    <span class="chat-text">${msg.text}</span>
+  `;
+  els.chatMessages.appendChild(div);
+  els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+});
 
 // ===== SOCKET EVENTS =====
 
