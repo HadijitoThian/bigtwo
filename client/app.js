@@ -751,34 +751,55 @@ function startLobbyMusic() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     musicGain = ctx.createGain();
-    musicGain.gain.setValueAtTime(musicEnabled ? 0.04 : 0, ctx.currentTime);
+    musicGain.gain.setValueAtTime(musicEnabled ? 0.06 : 0, ctx.currentTime);
     musicGain.connect(ctx.destination);
+
+    // Smooth jazz progression with proper instrumentation
+    // Using triangle waves for soft piano-like tones + sine for bass
+    const chordDuration = 6; // slower, more relaxed
     const chords = [
-      [261.6, 329.6, 392.0, 493.9],
-      [220.0, 261.6, 329.6, 392.0],
-      [293.7, 349.2, 440.0, 523.3],
-      [392.0, 493.9, 587.3, 698.5],
+      { name: 'Cmaj9', notes: [261.6, 329.6, 392.0, 493.9, 587.3], bass: 130.8 },
+      { name: 'Am9', notes: [220.0, 261.6, 329.6, 392.0, 493.9], bass: 110.0 },
+      { name: 'Dm9', notes: [293.7, 349.2, 440.0, 523.3, 659.3], bass: 146.8 },
+      { name: 'G13', notes: [392.0, 493.9, 587.3, 698.5, 880.0], bass: 196.0 },
+      { name: 'Fmaj7', notes: [349.2, 440.0, 523.3, 659.3, 784.0], bass: 174.6 },
+      { name: 'Em7', notes: [329.6, 392.0, 493.9, 587.3, 740.0], bass: 164.8 },
     ];
+
     let idx = 0;
     const playChord = () => {
-      const freqs = chords[idx];
+      const chord = chords[idx];
       idx = (idx + 1) % chords.length;
-      freqs.forEach((freq, i) => {
+      // Bass note (deep sine)
+      const bO = ctx.createOscillator();
+      const bG = ctx.createGain();
+      bO.type = 'sine';
+      bO.frequency.value = chord.bass;
+      bG.gain.setValueAtTime(0.04, ctx.currentTime + 0.1);
+      bG.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + chordDuration - 0.5);
+      bO.connect(bG); bG.connect(musicGain);
+      bO.start(ctx.currentTime); bO.stop(ctx.currentTime + chordDuration);
+
+      // Chord notes (soft triangle = piano-like)
+      chord.notes.forEach((freq, i) => {
         const o = ctx.createOscillator();
         const g = ctx.createGain();
-        o.type = i === 0 ? 'triangle' : 'sine';
+        o.type = i < 2 ? 'triangle' : 'sine';
         o.frequency.value = freq;
-        g.gain.setValueAtTime(0.02, ctx.currentTime + 0.05);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 4);
-        o.connect(g);
-        g.connect(musicGain);
-        o.start(ctx.currentTime);
-        o.stop(ctx.currentTime + 4.2);
+        g.gain.setValueAtTime(0.012 + i * 0.002, ctx.currentTime + 0.1 + i * 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + chordDuration - 0.3);
+        o.connect(g); g.connect(musicGain);
+        o.start(ctx.currentTime); o.stop(ctx.currentTime + chordDuration);
       });
     };
     playChord();
-    musicNode = setInterval(playChord, 4000);
+    musicNode = setInterval(playChord, chordDuration * 1000);
   } catch {}
+}
+
+function stopLobbyMusic() {
+  if (musicNode) { clearInterval(musicNode); musicNode = null; }
+  musicGain = null;
 }
 
 window.toggleMusic = () => {
@@ -786,7 +807,7 @@ window.toggleMusic = () => {
   try { localStorage.setItem('bigtwo_music', musicEnabled ? 'on' : 'off'); } catch {}
   if (musicGain) {
     try {
-      const val = musicEnabled ? 0.04 : 0;
+      const val = musicEnabled ? 0.06 : 0;
       musicGain.gain.cancelScheduledValues(musicGain.context.currentTime);
       musicGain.gain.setValueAtTime(val, musicGain.context.currentTime);
     } catch {}
