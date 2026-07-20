@@ -1,18 +1,42 @@
-const socket = io();
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 500,
+  reconnectionDelayMax: 3000,
+  timeout: 15000,
+});
 
 let state = null;
 let selected = new Set();
 let hints = [];
 let myName = '';
 let lastRoomCode = null;
+let lastPlayerName = null;
+
+// Keep socket alive when tab is backgrounded (mobile/browser suspends JS)
+// Send periodic pings to prevent idle timeout
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && socket.disconnected) {
+    console.log('Tab visible again, connecting...');
+    socket.connect();
+  }
+});
 
 socket.on('connect', () => {
   console.log('Connected');
+  // Auto-reconnect to room if we were in one
+  if (lastRoomCode && lastPlayerName && !state?.code) {
+    socket.emit('reconnect', { code: lastRoomCode, name: lastPlayerName });
+  }
 });
 
 socket.on('disconnect', (reason) => {
-  if (reason === 'io server disconnect' || reason === 'transport close') {
-    showError('Server connection lost. The server may be restarting (code deploy). Refresh and rejoin.');
+  console.log('Disconnected:', reason);
+  if (reason === 'io server disconnect') {
+    showError('Server restarted. Automatically reconnecting...');
+  } else if (reason === 'transport close' || reason === 'ping timeout') {
+    // Auto-reconnect will handle this
+    showError('Connection lost. Reconnecting...');
   }
 });
 
@@ -252,6 +276,8 @@ socket.on('chatMessage', (msg) => {
 socket.on('state', (s) => {
   const prevState = state?.state;
   state = s;
+  // Remember room code for reconnect
+  if (s.code) { lastRoomCode = s.code; lastPlayerName = myName; }
   selected.clear();
   hints = [];
   render();

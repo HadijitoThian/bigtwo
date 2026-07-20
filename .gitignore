@@ -1,4 +1,6 @@
 node_modules/
-screenshot.png
+.data/
+screenshot*.png
+ss*.png
 tests/smoke.js
 tests/smoke-online.js

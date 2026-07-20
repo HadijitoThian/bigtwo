@@ -1,7 +1,7 @@
 // Persistence layer — pure Node.js fs, zero dependencies
 // Profiles and match history survive temp filesystem; permanent with Railway volume
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -55,6 +55,8 @@ export function saveMatchHistory({ roomCode, totalRounds, betPerPoint, players, 
     id, roomCode, totalRounds, betPerPoint, players,
     roundsPlayed, finalPoints, finalMoney, finishedAt: Date.now(),
   }, null, 2));
+  // Prune old match files — keep only last 20
+  pruneOldMatches(20);
   return id;
 }
 
@@ -70,4 +72,22 @@ export function getRecentMatches(limit = 10) {
       .sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0))
       .slice(0, limit);
   } catch { return []; }
+}
+
+// Keep only the N most recent match files
+export function pruneOldMatches(keep = 20) {
+  try {
+    const files = readdirSync(DATA_DIR)
+      .filter(f => f.startsWith('match_') && f.endsWith('.json'))
+      .map(f => {
+        try { return JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8')); }
+        catch { return null; }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
+    if (files.length <= keep) return;
+    for (const m of files.slice(keep)) {
+      try { unlinkSync(join(DATA_DIR, `match_${m.id}.json`)); } catch {}
+    }
+  } catch {}
 }

@@ -12,7 +12,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const http = createServer(app);
-const io = new Server(http);
+const io = new Server(http, {
+  pingInterval: 10000,     // 10s ping (detect disconnect faster)
+  pingTimeout: 5000,       // 5s timeout (default is 20s)
+  connectTimeout: 10000,
+  maxHttpBufferSize: 1e6,
+});
 
 app.use(express.static(join(__dirname, '../client')));
 
@@ -190,9 +195,11 @@ io.on('connection', (socket) => {
     try {
       const room = manager.getRoom(code);
       if (!room) throw new Error('Room not found');
-      // Find player by name (simple reconnect strategy)
-      const player = room.players.find(p => p.name === name && !p.connected);
-      if (!player) throw new Error('No disconnected player with that name');
+      // Find player by name — try disconnected first, then any
+      let player = room.players.find(p => p.name === name && !p.connected);
+      if (!player) player = room.players.find(p => p.name === name);
+      if (!player) throw new Error('Player not found in room');
+      // Update socket ID and mark connected
       player.socketId = socket.id;
       player.connected = true;
       broadcastRoom(room);
@@ -264,12 +271,21 @@ io.on('connection', (socket) => {
       room.removePlayer(socket.id);
       broadcastRoom(room);
       console.log(`Disconnected from room ${room.code}`);
-      // Clean up empty rooms after 5 min
-      setTimeout(() => manager.cleanup(), 5 * 60 * 1000);
     }
     console.log(`Disconnected: ${socket.id}`);
   });
 });
+
+// Periodic cleanup — remove stale rooms every 5 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, room] of manager.rooms) {
+    if (room.players.every(p => !p.connected)) {
+      manager.rooms.delete(code);
+      console.log(`Cleaned stale room ${code}`);
+    }
+  }
+}, 5 * 60 * 1000);
 
 const PORT = process.env.PORT || 3001;
 http.listen(PORT, '0.0.0.0', () => {
