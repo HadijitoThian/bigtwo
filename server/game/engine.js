@@ -149,7 +149,7 @@ export class BigTwoGame {
     this.tablePlayBy = playerIndex;
     this.lastPlayCards = cards;
     this.isFirstPlay = false;
-    this.passed.clear();
+    // NOTE: Do NOT clear passes here — they clear only when trick ends (in pass())
 
     // Check win
     if (hand.length === 0) {
