@@ -92,22 +92,22 @@ document.addEventListener('visibilitychange', () => {
     // Resume audio context if suspended
     try { audioCtx?.resume(); } catch {}
   }
-  // Save reconnect data when leaving
+  // Save reconnect data when leaving (use localStorage so it survives tab close)
   if (document.visibilityState === 'hidden') {
     try {
       if (lastRoomCode && lastPlayerName) {
-        sessionStorage.setItem('bigtwo_room', lastRoomCode);
-        sessionStorage.setItem('bigtwo_name', lastPlayerName);
+        localStorage.setItem('bigtwo_room', lastRoomCode);
+        localStorage.setItem('bigtwo_name', lastPlayerName);
       }
     } catch {}
   }
 });
 
-// On page load, check if we were in a room
+// On page load, check if we were in a room (localStorage survives browser restart)
 (function restoreSession() {
   try {
-    const savedRoom = sessionStorage.getItem('bigtwo_room');
-    const savedName = sessionStorage.getItem('bigtwo_name');
+    const savedRoom = localStorage.getItem('bigtwo_room');
+    const savedName = localStorage.getItem('bigtwo_name');
     if (savedRoom && savedName) {
       lastRoomCode = savedRoom;
       lastPlayerName = savedName;
@@ -119,9 +119,10 @@ document.addEventListener('visibilitychange', () => {
 
 socket.on('connect', () => {
   console.log('Connected');
-  // Auto-reconnect to room if we were in one
+  // Auto-reconnect to room if we were in one (survives browser close/restart)
   if (lastRoomCode && lastPlayerName && !state?.code) {
     socket.emit('reconnect', { code: lastRoomCode, name: lastPlayerName });
+    console.log('Auto-reconnecting to room ' + lastRoomCode + ' as ' + lastPlayerName);
   }
 });
 
@@ -130,9 +131,10 @@ socket.on('disconnect', (reason) => {
   if (reason === 'io server disconnect') {
     showError('Server restarted. Automatically reconnecting...');
   } else if (reason === 'transport close' || reason === 'ping timeout') {
-    // Auto-reconnect will handle this
+    // Auto-reconnect will handle this — keep localStorage for reconnect
     showError('Connection lost. Reconnecting...');
   }
+  // Don't clear localStorage — player can still reconnect on page reload
 });
 
 const SUIT_SYMBOL = ['♦', '♣', '♥', '♠'];
@@ -250,10 +252,10 @@ els.nextRoundBtn.onclick = () => {
 };
 
 els.stopMatchBtn.onclick = () => {
-  if (confirm('Stop the match? Current standings are final.')) socket.emit('stopMatch');
+  if (confirm('Stop the match? All current scores will be final and the match will end for everyone. This cannot be undone.')) socket.emit('stopMatch');
 };
 els.stopMatchBtn2.onclick = () => {
-  if (confirm('Stop the match? Current standings are final.')) {
+  if (confirm('Stop the match? All current scores will be final and the match will end for everyone. This cannot be undone.')) {
     socket.emit('stopMatch');
     els.roundEndModal.classList.add('hidden');
   }
@@ -409,8 +411,15 @@ socket.on('state', (s) => {
   const prevMyIdx = state?.game?.myIndex;
   const prevRound = state?.currentRound;
   state = s;
-  // Remember room code for reconnect
-  if (s.code) { lastRoomCode = s.code; lastPlayerName = myName; }
+  // Remember room code for reconnect (survives browser crash)
+  if (s.code) {
+    lastRoomCode = s.code;
+    lastPlayerName = myName;
+    try {
+      localStorage.setItem('bigtwo_room', s.code);
+      localStorage.setItem('bigtwo_name', myName);
+    } catch {}
+  }
   selected.clear();
   hints = [];
 
