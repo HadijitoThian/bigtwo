@@ -199,6 +199,8 @@ const els = {
   chatSendBtn: $('chat-send-btn'),
   // Profile
   profileBtn: null,
+  // Music
+  copyCodeBtn: $('copyCodeBtn'),
 };
 
 // ===== LOBBY =====
@@ -737,3 +739,67 @@ function renderMatchEnd() {
 
 render();
 renderSoundBtn();
+
+// ===== LOBBY MUSIC =====
+let musicNode = null;
+let musicGain = null;
+let musicEnabled = true;
+try { musicEnabled = localStorage.getItem('bigtwo_music') !== 'off'; } catch {}
+
+function startLobbyMusic() {
+  if (musicNode) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    musicGain = ctx.createGain();
+    musicGain.gain.setValueAtTime(musicEnabled ? 0.04 : 0, ctx.currentTime);
+    musicGain.connect(ctx.destination);
+    const chords = [
+      [261.6, 329.6, 392.0, 493.9],
+      [220.0, 261.6, 329.6, 392.0],
+      [293.7, 349.2, 440.0, 523.3],
+      [392.0, 493.9, 587.3, 698.5],
+    ];
+    let idx = 0;
+    const playChord = () => {
+      const freqs = chords[idx];
+      idx = (idx + 1) % chords.length;
+      freqs.forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = i === 0 ? 'triangle' : 'sine';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.02, ctx.currentTime + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 4);
+        o.connect(g);
+        g.connect(musicGain);
+        o.start(ctx.currentTime);
+        o.stop(ctx.currentTime + 4.2);
+      });
+    };
+    playChord();
+    musicNode = setInterval(playChord, 4000);
+  } catch {}
+}
+
+window.toggleMusic = () => {
+  musicEnabled = !musicEnabled;
+  try { localStorage.setItem('bigtwo_music', musicEnabled ? 'on' : 'off'); } catch {}
+  if (musicGain) {
+    try {
+      const val = musicEnabled ? 0.04 : 0;
+      musicGain.gain.cancelScheduledValues(musicGain.context.currentTime);
+      musicGain.gain.setValueAtTime(val, musicGain.context.currentTime);
+    } catch {}
+  }
+  renderMusicBtn();
+};
+
+function renderMusicBtn() {
+  const icon = musicEnabled ? '🎵' : '🔇';
+  document.querySelectorAll('#music-toggle-btn-lobby').forEach(b => b.textContent = icon);
+}
+
+let musicStarted = false;
+document.addEventListener('click', () => { if(!musicStarted){musicStarted=true;startLobbyMusic();} }, {once:true});
+document.addEventListener('keydown', () => { if(!musicStarted){musicStarted=true;startLobbyMusic();} }, {once:true});
+renderMusicBtn();

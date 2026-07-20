@@ -6,14 +6,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="has-bg">
 
 <!-- LOBBY SCREEN -->
 <div id="lobby-screen">
   <div class="lobby-container">
-    <h1>🂡 Big Two</h1>
+    <h1><span class="spade-icon">🂡</span> Big Two</h1>
     <p class="tagline">Online multiplayer</p>
-    <button id="sound-toggle-btn-lobby" class="icon-btn" style="margin-bottom:16px" onclick="window.toggleSound?.()">🔊</button>
+    <button id="sound-toggle-btn-lobby" class="icon-btn" style="margin-bottom:12px" onclick="window.toggleSound?.()">🔊</button>
+    <button id="music-toggle-btn-lobby" class="icon-btn" style="margin-bottom:12px;margin-left:4px" onclick="window.toggleMusic?.()" title="Background music">🎵</button>
 
     <div id="join-section">
       <input type="text" id="playerName" placeholder="Your name" maxlength="20">
@@ -28,7 +29,7 @@
     </div>
 
     <div id="room-lobby" class="hidden">
-      <h2>Room: <span id="displayCode" class="room-code"></span></h2>
+      <h2>Room: <span id="displayCode" class="room-code"></span> <button id="copyCodeBtn" class="copy-btn" title="Copy code">📋</button></h2>
       <p class="share-hint">Share this code with your friends</p>
       <div id="playerList"></div>
       <div id="lobby-error" style="color:#ff8a80;font-size:13px;min-height:18px;margin:8px 0;"></div>
