@@ -1,63 +1,73 @@
-// Persistence layer — node-persist (pure JS, no native deps)
-// Profiles and match history survive server restarts on Railway volumes
+// Persistence layer — pure Node.js fs, zero dependencies
+// Profiles and match history survive temp filesystem; permanent with Railway volume
 
-import storage from 'node-persist';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { mkdirSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dataDir = process.env.DATA_DIR || join(__dirname, '..', '..', '.data');
-try { mkdirSync(dataDir, { recursive: true }); } catch {}
+const DATA_DIR = process.env.DATA_DIR || join(__dirname, '..', '..', '.data');
 
-await storage.init({ dir: join(dataDir, 'storage') });
+function ensureDir() {
+  try { mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+}
+ensureDir();
+
+function safeFilename(str) {
+  return str.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+}
 
 // ===== PROFILE =====
 
-const PROFILE_KEY = (name) => `profile:${name.toLowerCase()}`;
-
 export function getProfile(name) {
-  const key = PROFILE_KEY(name);
-  const data = storage.getItemSync(key);
-  return data || null;
+  try {
+    const file = join(DATA_DIR, `profile_${safeFilename(name)}.json`);
+    if (!existsSync(file)) return null;
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch { return null; }
 }
 
 export function saveProfile({ name, avatarSeed = '', avatarStyle = 'bottts', color = '#ffb300' }) {
-  const key = PROFILE_KEY(name);
+  const file = join(DATA_DIR, `profile_${safeFilename(name)}.json`);
   const profile = { name, avatarSeed, avatarStyle, color };
-  storage.setItemSync(key, profile);
+  writeFileSync(file, JSON.stringify(profile, null, 2));
   return profile;
 }
 
 export function listProfiles() {
-  return storage.valuesSync().filter(v => v && v.name);
+  try {
+    return readdirSync(DATA_DIR)
+      .filter(f => f.startsWith('profile_') && f.endsWith('.json'))
+      .map(f => {
+        try { return JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8')); }
+        catch { return null; }
+      })
+      .filter(Boolean);
+  } catch { return []; }
 }
 
 // ===== MATCH HISTORY =====
 
-const MATCH_PREFIX = 'match:';
-
 export function saveMatchHistory({ roomCode, totalRounds, betPerPoint, players, roundsPlayed, finalPoints, finalMoney }) {
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  storage.setItemSync(`${MATCH_PREFIX}${id}`, {
-    id,
-    roomCode,
-    totalRounds,
-    betPerPoint,
-    players,
-    roundsPlayed,
-    finalPoints,
-    finalMoney,
-    finishedAt: Date.now(),
-  });
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const file = join(DATA_DIR, `match_${id}.json`);
+  writeFileSync(file, JSON.stringify({
+    id, roomCode, totalRounds, betPerPoint, players,
+    roundsPlayed, finalPoints, finalMoney, finishedAt: Date.now(),
+  }, null, 2));
   return id;
 }
 
 export function getRecentMatches(limit = 10) {
-  const matches = storage.valuesSync()
-    .filter(v => v && v.id && v.players)
-    .sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
-  return matches.slice(0, limit);
+  try {
+    return readdirSync(DATA_DIR)
+      .filter(f => f.startsWith('match_') && f.endsWith('.json'))
+      .map(f => {
+        try { return JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8')); }
+        catch { return null; }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0))
+      .slice(0, limit);
+  } catch { return []; }
 }
-
-export default storage;
