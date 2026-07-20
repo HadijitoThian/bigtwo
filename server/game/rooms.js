@@ -77,6 +77,7 @@ export class Room {
         name: p.name,
         index: p.index,
         connected: p.connected,
+        profile: this.playerProfiles ? this.playerProfiles[p.name] : null,
       })),
       matchState: this.match ? this.match.state : 'LOBBY',
     };

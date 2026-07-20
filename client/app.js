@@ -4,12 +4,33 @@ let state = null;
 let selected = new Set();
 let hints = [];
 let myName = '';
+let lastRoomCode = null;
+
+socket.on('connect', () => {
+  console.log('Connected');
+});
+
+socket.on('disconnect', (reason) => {
+  if (reason === 'io server disconnect' || reason === 'transport close') {
+    showError('Server connection lost. The server may be restarting (code deploy). Refresh and rejoin.');
+  }
+});
 
 const SUIT_SYMBOL = ['♦', '♣', '♥', '♠'];
 const RANK_LABEL = {
   3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10',
   11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2'
 };
+
+// DiceBear avatar URL helpers
+function avatarUrl(seed, style = 'bottts') {
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=48`;
+}
+function avatarUrlBig(seed, style = 'bottts') {
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=120`;
+}
+
+const AVATAR_STYLES = ['bottts', 'fun-emoji', 'identicon', 'initials', 'thumbs', 'pixel-art', 'lorelei'];
 
 const $ = (id) => document.getElementById(id);
 
@@ -58,6 +79,8 @@ const els = {
   chatMessages: $('chat-messages'),
   chatInput: $('chat-input'),
   chatSendBtn: $('chat-send-btn'),
+  // Profile
+  profileBtn: null,
 };
 
 // ===== LOBBY =====
@@ -116,6 +139,89 @@ els.stopMatchBtn2.onclick = () => {
 
 els.closeMatchEnd.onclick = () => els.matchEndModal.classList.add('hidden');
 
+// ===== PROFILE =====
+
+let profileData = null;
+let selectedAvatarStyle = 'bottts';
+
+const profileModal = $('profile-modal');
+const profileNameField = $('profile-name-field');
+const profileAvatarPreview = $('profile-avatar-preview');
+const avatarStyleGrid = $('avatar-style-grid');
+const saveProfileBtn = $('save-profile-btn');
+const profileSettingsBtn = $('profile-settings-btn');
+
+profileSettingsBtn.onclick = () => {
+  profileNameField.value = myName || '';
+  selectedAvatarStyle = profileData?.avatarStyle || 'bottts';
+  renderAvatarStyles();
+  updateProfilePreview();
+  profileModal.classList.remove('hidden');
+};
+
+saveProfileBtn.onclick = () => {
+  const name = profileNameField.value.trim();
+  if (!name) return;
+  myName = name;
+  els.playerName.value = name;
+  socket.emit('updateProfile', {
+    name,
+    avatarSeed: profileData?.avatarSeed || name,
+    avatarStyle: selectedAvatarStyle,
+    color: '#ffb300',
+  });
+  profileModal.classList.add('hidden');
+};
+
+function renderAvatarStyles() {
+  avatarStyleGrid.innerHTML = '';
+  const seed = profileData?.avatarSeed || myName || 'default';
+  AVATAR_STYLES.forEach(style => {
+    const div = document.createElement('div');
+    div.className = 'avatar-style-option';
+    if (style === selectedAvatarStyle) div.classList.add('selected');
+    div.innerHTML = `<img src="${avatarUrl(seed, style)}" alt="${style}">`;
+    div.title = style;
+    div.onclick = () => {
+      selectedAvatarStyle = style;
+      renderAvatarStyles();
+      updateProfilePreview();
+    };
+    avatarStyleGrid.appendChild(div);
+  });
+}
+
+function updateProfilePreview() {
+  const seed = profileData?.avatarSeed || myName || 'default';
+  profileAvatarPreview.src = avatarUrlBig(seed, selectedAvatarStyle);
+}
+
+socket.on('profile', (p) => {
+  if (p) profileData = p;
+});
+
+// Load profile on startup when name changes
+const origCreateRoom = els.createRoomBtn.onclick;
+els.createRoomBtn.onclick = () => {
+  const name = els.playerName.value.trim();
+  if (name) {
+    socket.emit('getProfile', { name });
+    myName = name;
+  }
+  origCreateRoom();
+};
+
+const origJoinRoom = els.joinRoomBtn.onclick;
+els.joinRoomBtn.onclick = () => {
+  const name = els.playerName.value.trim();
+  if (name) {
+    socket.emit('getProfile', { name });
+    myName = name;
+  }
+  origJoinRoom();
+};
+
+// Update avatar display in lobby player list
 // ===== CHAT =====
 
 els.chatSendBtn.onclick = () => {
@@ -230,7 +336,10 @@ function render() {
     state.players.forEach((p, i) => {
       const div = document.createElement('div');
       div.className = 'player-item';
+      const profile = p.profile || {};
+      const avaUrl = avatarUrl(profile.avatarSeed || p.name, profile.avatarStyle || 'bottts');
       div.innerHTML = `
+        <img src="${avaUrl}" class="player-avatar" alt="">
         <span>${p.name}</span>
         ${i === 0 ? '<span class="host-badge">host</span>' : ''}
         <span class="status ${p.connected ? 'online' : 'offline'}">${p.connected ? '●' : '○'}</span>
@@ -287,6 +396,8 @@ function render() {
 
     const playerInfo = state.players.find(p => p.index === i);
     const isConnected = playerInfo ? playerInfo.connected : true;
+    const profile = playerInfo?.profile || {};
+    const avaUrl = avatarUrl(profile.avatarSeed || name, profile.avatarStyle || 'bottts');
 
     let badges = '';
     if (g.passed.includes(i)) badges += '<span class="badge pass">passed</span>';
@@ -295,6 +406,7 @@ function render() {
     if (g.state === 'FINISHED' && i === g.winner) badges += '<span class="badge">🏆</span>';
 
     div.innerHTML = `
+      <img src="${avaUrl}" class="opponent-avatar" alt="">
       <div class="opp-name">${name}</div>
       <div class="opp-count">${g.handCounts[i]}</div>
       <div class="opp-badges">${badges}</div>

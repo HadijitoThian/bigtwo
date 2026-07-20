@@ -23,6 +23,7 @@
           <button id="joinRoomBtn">Join</button>
         </div>
       </div>
+      <button id="profile-settings-btn" class="profile-btn" title="Profile Settings">⚙ Profile</button>
     </div>
 
     <div id="room-lobby" class="hidden">
@@ -123,6 +124,25 @@
     <h2>🏁 Match Complete</h2>
     <div id="match-end-body"></div>
     <button id="closeMatchEnd">Close</button>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div id="profile-modal" class="hidden">
+  <div class="modal-content profile-modal">
+    <h2>Profile Settings</h2>
+    <div class="profile-preview">
+      <img id="profile-avatar-preview" src="" alt="avatar" width="80" height="80">
+      <div>
+        <input type="text" id="profile-name-field" placeholder="Name" maxlength="20">
+        <p class="profile-hint">Your name and avatar stay saved across sessions</p>
+      </div>
+    </div>
+    <div class="profile-styles">
+      <label>Avatar Style:</label>
+      <div id="avatar-style-grid"></div>
+    </div>
+    <button id="save-profile-btn">Save Profile</button>
   </div>
 </div>
 

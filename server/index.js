@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { RoomManager, generateHints } from './game/rooms.js';
 import { MATCH_STATE } from './game/match.js';
 import { GAME_STATE } from './game/engine.js';
+import { saveProfile, getProfile, listProfiles, saveMatchHistory } from './game/persist.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +20,21 @@ const manager = new RoomManager();
 
 // Broadcast state to all players in a room (each gets their own view)
 function broadcastRoom(room) {
+  // Auto-save match history when match finishes
+  if (room.match && room.match.state === 'FINISHED' && !room._historySaved) {
+    room._historySaved = true;
+    try {
+      saveMatchHistory({
+        roomCode: room.code,
+        totalRounds: room.match.totalRounds,
+        betPerPoint: room.match.betPerPoint,
+        players: room.match.playerNames,
+        roundsPlayed: room.match.currentRound,
+        finalPoints: room.match.cumulativePoints,
+        finalMoney: room.match.cumulativeMoney,
+      });
+    } catch { /* non-critical */ }
+  }
   for (const player of room.players) {
     if (player.connected) {
       const state = room.serializeFor(player.socketId);
@@ -38,8 +54,14 @@ io.on('connection', (socket) => {
   socket.on('createRoom', ({ name } = {}) => {
     try {
       if (!name?.trim()) throw new Error('Name required');
+      // Auto-create/sync profile
+      let profile = getProfile(name);
+      if (!profile) profile = saveProfile({ name, avatarSeed: name, avatarStyle: 'bottts' });
       const room = manager.createRoom(socket.id);
       room.addPlayer(socket.id, name.trim());
+      // Store profile on room so we have it for persistence
+      room.playerProfiles = room.playerProfiles || {};
+      room.playerProfiles[name] = profile;
       socket.emit('state', room.serializeFor(socket.id));
       console.log(`Room ${room.code} created by ${name}`);
     } catch (e) {
@@ -50,9 +72,14 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', ({ code, name } = {}) => {
     try {
       if (!name?.trim()) throw new Error('Name required');
+      // Auto-create/sync profile
+      let profile = getProfile(name);
+      if (!profile) profile = saveProfile({ name, avatarSeed: name, avatarStyle: 'bottts' });
       const room = manager.getRoom(code);
       if (!room) throw new Error('Room not found');
       room.addPlayer(socket.id, name.trim());
+      room.playerProfiles = room.playerProfiles || {};
+      room.playerProfiles[name] = profile;
       // Send chat history to the new player
       if (room.chatHistory?.length > 0) {
         for (const msg of room.chatHistory.slice(-50)) {
@@ -126,6 +153,18 @@ io.on('connection', (socket) => {
       const room = manager.findRoomBySocket(socket.id);
       if (!room?.match) throw new Error('No active match');
       room.match.stopMatch();
+      // Save match history
+      try {
+        saveMatchHistory({
+          roomCode: room.code,
+          totalRounds: room.match.totalRounds,
+          betPerPoint: room.match.betPerPoint,
+          players: room.match.playerNames,
+          roundsPlayed: room.match.currentRound,
+          finalPoints: room.match.cumulativePoints,
+          finalMoney: room.match.cumulativeMoney,
+        });
+      } catch { /* non-critical */ }
       broadcastRoom(room);
     } catch (e) {
       socket.emit('error', e.message);
@@ -160,6 +199,30 @@ io.on('connection', (socket) => {
       console.log(`${name} reconnected to room ${room.code}`);
     } catch (e) {
       socket.emit('error', e.message);
+    }
+  });
+
+  // ===== PROFILE =====
+
+  socket.on('getProfile', ({ name } = {}) => {
+    const profile = getProfile(name);
+    socket.emit('profile', profile);
+  });
+
+  socket.on('listProfiles', () => {
+    socket.emit('profileList', listProfiles());
+  });
+
+  socket.on('updateProfile', ({ name, avatarSeed, avatarStyle, color } = {}) => {
+    if (!name?.trim()) return;
+    const profile = saveProfile({ name, avatarSeed, avatarStyle, color });
+    socket.emit('profile', profile);
+    // Also update in room if they're in one
+    const room = manager.findRoomBySocket(socket.id);
+    if (room) {
+      if (!room.playerProfiles) room.playerProfiles = {};
+      room.playerProfiles[name] = profile;
+      broadcastRoom(room);
     }
   });
 
