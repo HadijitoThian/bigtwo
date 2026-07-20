@@ -1,4 +1,5 @@
 import { playCardSound, playTurnSound, playWinSound, playErrorSound, playTimerWarningSound, playClapSound, playLoserSound } from './sounds.js';
+import { playDealAnimation } from './deal.js';
 
 // ===== SOUND TOGGLE =====
 let soundEnabled = true;
@@ -406,6 +407,7 @@ socket.on('state', (s) => {
   const prevState = state?.state;
   const prevPlayer = state?.game?.currentPlayer;
   const prevMyIdx = state?.game?.myIndex;
+  const prevRound = state?.currentRound;
   state = s;
   // Remember room code for reconnect
   if (s.code) { lastRoomCode = s.code; lastPlayerName = myName; }
@@ -456,6 +458,20 @@ socket.on('state', (s) => {
   }
 
   render();
+
+  // ===== DEAL ANIMATION =====
+  // Trigger on: first round (lobby -> playing) or new round (round_end -> playing)
+  const isNewRound = (s.state === 'PLAYING' && s.currentRound > 0) &&
+                      (prevState === 'LOBBY' || prevState === 'ROUND_END');
+  const isFirstPlay = s.state === 'PLAYING' && s.currentRound === 1 && prevState === 'LOBBY';
+
+  if ((isNewRound || isFirstPlay) && s.playerNames && s.playerNames.length >= 2) {
+    const names = s.playerNames;
+    const count = s.playerNames.length;
+    playDealAnimation(names, count, () => {
+      render();
+    });
+  }
 
   // Show modals on transitions
   if (state.state === 'ROUND_END' && prevState !== 'ROUND_END') {
