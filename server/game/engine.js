@@ -19,8 +19,8 @@ export class BigTwoGame {
    * @param options.starterIndex player index who starts (overrides 3♦ rule for round 2+)
    */
   constructor(numPlayers = 4, betPerPoint = 10000, options = {}) {
-    if (numPlayers !== 3 && numPlayers !== 4) {
-      throw new Error('Only 3 or 4 players supported');
+    if (numPlayers < 2 || numPlayers > 4) {
+      throw new Error('Only 2-4 players supported');
     }
     this.numPlayers = numPlayers;
     this.betPerPoint = betPerPoint;

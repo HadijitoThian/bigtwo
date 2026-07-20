@@ -16,7 +16,11 @@ export class BigTwoMatch {
     if (!ROUND_OPTIONS.includes(totalRounds)) {
       throw new Error(`totalRounds must be one of ${ROUND_OPTIONS.join(', ')}`);
     }
-    this.numPlayers = numPlayers;
+    this.numPlayers = numPlayers; // support 2-4 players
+    // Note: 2-player mode works but the game is designed for 3-4
+    if (numPlayers < 2 || numPlayers > 4) {
+      throw new Error('Only 2-4 players supported');
+    }
     this.betPerPoint = betPerPoint;
     this.totalRounds = totalRounds;
     this.playerNames = playerNames.length === numPlayers

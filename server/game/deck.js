@@ -37,7 +37,7 @@ export function shuffle(deck, rng = Math.random) {
   return d;
 }
 
-// Deal for 4 players (13 each) or 3 players (17 each + 1 burned)
+// Deal for 4 players (13 each), 3 players (17 each + 1 burned), 2 players (26 each)
 export function deal(deck, numPlayers) {
   if (numPlayers === 4) {
     const hands = [[], [], [], []];
@@ -47,12 +47,20 @@ export function deal(deck, numPlayers) {
   }
   if (numPlayers === 3) {
     const hands = [[], [], []];
-    // 51 cards dealt, 1 burned
     for (let i = 0; i < 51; i++) {
       hands[i % 3].push(deck[i]);
     }
     hands.forEach(sortHand);
     return { hands, burned: [deck[51]] };
+  }
+  if (numPlayers === 2) {
+    const hands = [[], []];
+    // 26 cards each
+    for (let i = 0; i < 52; i++) {
+      hands[i % 2].push(deck[i]);
+    }
+    hands.forEach(sortHand);
+    return { hands, burned: [] };
   }
   throw new Error(`Unsupported player count: ${numPlayers}`);
 }
