@@ -243,6 +243,36 @@ test('winner bonus: +10 if final play has no 2', () => {
   assert.equal(winnerBonus([card(14, SUIT.SPADE)]), 10);
 });
 
+test('flush with 2 beats flush without 2 (clubs > spades)', () => {
+  const flushA = identifyPlay([
+    card(15, SUIT.CLUB), card(3, SUIT.CLUB), card(5, SUIT.CLUB), card(7, SUIT.CLUB), card(9, SUIT.CLUB)
+  ]);
+  const flushB = identifyPlay([
+    card(3, SUIT.SPADE), card(7, SUIT.SPADE), card(8, SUIT.SPADE), card(10, SUIT.SPADE), card(11, SUIT.SPADE)
+  ]);
+  assert.ok(comparePlays(flushA, flushB) > 0, 'clubs flush with 2 beats spades flush without 2');
+});
+
+test('both flushes have 2, higher suit 2 wins', () => {
+  const flushA = identifyPlay([
+    card(15, SUIT.SPADE), card(3, SUIT.SPADE), card(5, SUIT.SPADE), card(7, SUIT.SPADE), card(9, SUIT.SPADE)
+  ]);
+  const flushB = identifyPlay([
+    card(15, SUIT.HEART), card(3, SUIT.HEART), card(5, SUIT.HEART), card(7, SUIT.HEART), card(9, SUIT.HEART)
+  ]);
+  assert.ok(comparePlays(flushA, flushB) > 0, '2♠ > 2♥');
+});
+
+test('neither flush has 2, spades beats clubs', () => {
+  const flushA = identifyPlay([
+    card(3, SUIT.SPADE), card(5, SUIT.SPADE), card(7, SUIT.SPADE), card(9, SUIT.SPADE), card(11, SUIT.SPADE)
+  ]);
+  const flushB = identifyPlay([
+    card(3, SUIT.CLUB), card(5, SUIT.CLUB), card(7, SUIT.CLUB), card(9, SUIT.CLUB), card(11, SUIT.CLUB)
+  ]);
+  assert.ok(comparePlays(flushA, flushB) > 0, 'spades flush > clubs flush');
+});
+
 test('full settlement matches worked example', () => {
   // Alice (winner, finished with 2♠), Bob 5 cards no 2s, Carol 8 cards one 2♥, David 13 cards two 2s
   const players = [

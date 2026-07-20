@@ -156,14 +156,8 @@ export function comparePlays(playA, playB) {
     case PLAY_TYPE.STRAIGHT:
       return compareStraights(playA, playB);
 
-    case PLAY_TYPE.FLUSH: {
-      // Higher suit first, then highest card
-      const suitA = playA.cards[0].suit;
-      const suitB = playB.cards[0].suit;
-      if (suitA !== suitB) return suitA - suitB;
-      // Same suit: compare highest card
-      return compareCards(playA.cards[4], playB.cards[4]);
-    }
+    case PLAY_TYPE.FLUSH:
+      return compareFlushes(playA, playB);
 
     case PLAY_TYPE.FULL_HOUSE:
       // Compare the triple rank
@@ -178,6 +172,32 @@ export function comparePlays(playA, playB) {
     default:
       return null;
   }
+}
+
+// Compare two flushes — Big Two rules:
+// - Flush with a 2 beats flush without a 2
+// - Both have 2 → compare suit of the 2
+// - Neither has 2 → compare highest suit, then highest card
+function compareFlushes(playA, playB) {
+  const hasTwoA = playA.cards.some(c => c.rank === 15);
+  const hasTwoB = playB.cards.some(c => c.rank === 15);
+
+  // One has 2 → 2 wins
+  if (hasTwoA && !hasTwoB) return 1;
+  if (!hasTwoA && hasTwoB) return -1;
+
+  // Both have 2 → compare suit of the 2
+  if (hasTwoA && hasTwoB) {
+    const twoA = playA.cards.find(c => c.rank === 15);
+    const twoB = playB.cards.find(c => c.rank === 15);
+    return twoA.suit - twoB.suit;
+  }
+
+  // Neither has 2 → compare highest suit, then highest card
+  const suitA = playA.cards[0].suit;
+  const suitB = playB.cards[0].suit;
+  if (suitA !== suitB) return suitA - suitB;
+  return compareCards(playA.cards[4], playB.cards[4]);
 }
 
 // Compare two straights (or straight flushes)
