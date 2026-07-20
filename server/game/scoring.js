@@ -5,9 +5,12 @@ import { compareCards } from './deck.js';
 
 // Calculate a loser's score from their leftover hand
 // Formula: (10 * num_2s + non_2_card_count) * multiplier
-// Multiplier based on TOTAL cards left (including 2s):
-//   1-6 → ×1, 7-9 → ×2, 10-12 → ×3, 13 → ×4
-export function calculateHandScore(leftoverCards) {
+//
+// Multiplier depends on player count:
+//   4 players (13 cards): 1-6 → ×1, 7-9 → ×2, 10-12 → ×3, 13 → ×4
+//   3 players (17 cards): 1-7 → ×1, 8-10 → ×2, 11-16 → ×3, 17 → ×4
+//   2 players (26 cards): 1-7 → ×1, 8-13 → ×2, 14-20 → ×3, 21-26 → ×4
+export function calculateHandScore(leftoverCards, numPlayers = 4) {
   const total = leftoverCards.length;
   if (total === 0) return 0;
 
@@ -16,10 +19,23 @@ export function calculateHandScore(leftoverCards) {
   const base = twos * 10 + nonTwos;
 
   let multiplier;
-  if (total <= 6) multiplier = 1;
-  else if (total <= 9) multiplier = 2;
-  else if (total <= 12) multiplier = 3;
-  else multiplier = 4; // 13
+  if (numPlayers === 3) {
+    if (total <= 7) multiplier = 1;
+    else if (total <= 10) multiplier = 2;
+    else if (total <= 16) multiplier = 3;
+    else multiplier = 4; // 17
+  } else if (numPlayers === 2) {
+    if (total <= 7) multiplier = 1;
+    else if (total <= 13) multiplier = 2;
+    else if (total <= 20) multiplier = 3;
+    else multiplier = 4;
+  } else {
+    // 4 players (default)
+    if (total <= 6) multiplier = 1;
+    else if (total <= 9) multiplier = 2;
+    else if (total <= 12) multiplier = 3;
+    else multiplier = 4; // 13
+  }
 
   return base * multiplier;
 }
@@ -41,7 +57,7 @@ export function winnerBonus(finalPlayCards) {
 //   penalizedPlayer: index of player who violated last-card rule (gets +50 added to their score)
 export function settleFaceToFace(players, winnerIndex, finalPlayCards, penalizedPlayer = null) {
   const n = players.length;
-  const scores = players.map(p => calculateHandScore(p.leftoverCards));
+  const scores = players.map(p => calculateHandScore(p.leftoverCards, players.length));
   const bonus = winnerBonus(finalPlayCards);
 
   // Apply last-card penalty: +50 to the violator's score

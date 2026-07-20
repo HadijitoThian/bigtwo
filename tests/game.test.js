@@ -189,6 +189,34 @@ test('Bob: 5 cards, no 2s → 5 pts', () => {
   assert.equal(calculateHandScore(hand), 5);
 });
 
+// ============ 3-PLAYER SCORING TESTS ============
+
+test('3p: 8 cards no 2 → 8×2 = 16 pts (8-10 = ×2)', () => {
+  const hand = Array.from({ length: 8 }, (_, i) => card(3 + i, 0));
+  assert.equal(calculateHandScore(hand, 3), 16);
+});
+
+test('3p: 9 cards one 2 → (10+8)×2 = 36 pts', () => {
+  const hand = [card(15, 0), ...Array.from({ length: 8 }, (_, i) => card(4 + i, 0))];
+  assert.equal(hand.length, 9);
+  assert.equal(calculateHandScore(hand, 3), 36);
+});
+
+test('3p: 17 cards two 2s → (20+15)×4 = 140 pts', () => {
+  const hand = [card(15, 0), card(15, 1), ...Array.from({ length: 15 }, (_, i) => card(4 + (i % 10), 2))];
+  assert.equal(calculateHandScore(hand, 3), 140);
+});
+
+test('3p: 12 cards no 2 → 12×3 = 36 pts', () => {
+  const hand = Array.from({ length: 12 }, (_, i) => card(3 + i, 0));
+  assert.equal(calculateHandScore(hand, 3), 36);
+});
+
+test('3p: 11 cards one 2 → (10+10)×3 = 60 pts', () => {
+  const hand = [card(15, 0), ...Array.from({ length: 10 }, (_, i) => card(4 + i, 0))];
+  assert.equal(calculateHandScore(hand, 3), 60);
+});
+
 test('Carol: 8 cards, one 2 → (10+7) × 2 = 34 pts', () => {
   const hand = [
     card(15, SUIT.HEART), // the 2

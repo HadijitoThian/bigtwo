@@ -1,4 +1,4 @@
-import { playCardSound, playTurnSound, playWinSound, playErrorSound, playTimerWarningSound } from './sounds.js';
+import { playCardSound, playTurnSound, playWinSound, playErrorSound, playTimerWarningSound, playClapSound, playLoserSound } from './sounds.js';
 
 // ===== SOUND TOGGLE =====
 let soundEnabled = true;
@@ -416,7 +416,19 @@ socket.on('state', (s) => {
     const prevG = prevState ? state?.game : null;
     // Round winner detected (game just finished)
     if (g?.state === 'FINISHED' && prevState === 'PLAYING') {
-      playWinSound();
+      // Clap for winner
+      playClapSound();
+      // Loser sound if anyone still has full hand (never played)
+      const result = g?.result;
+      if (result) {
+        const numPlayers = s.numPlayers || 4;
+        const fullHandCount = numPlayers === 3 ? 17 : 13;
+        result.leftoverHands?.forEach((hand, idx) => {
+          if (idx !== g.winner && hand.length >= fullHandCount) {
+            setTimeout(() => playLoserSound(), 800);
+          }
+        });
+      }
     }
     // Error from server
     // My turn just started
