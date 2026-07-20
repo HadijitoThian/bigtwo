@@ -1,0 +1,4 @@
+node_modules/
+screenshot.png
+tests/smoke.js
+tests/smoke-online.js

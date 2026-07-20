@@ -1,0 +1,17 @@
+{
+  "name": "big-two",
+  "version": "1.0.0",
+  "description": "Big Two (Dai Di) card game engine",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/game.test.js tests/match.test.js",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  }
+}

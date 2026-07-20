@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Big Two — Online</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOBBY SCREEN -->
+<div id="lobby-screen">
+  <div class="lobby-container">
+    <h1>🂡 Big Two</h1>
+    <p class="tagline">Online multiplayer</p>
+
+    <div id="join-section">
+      <input type="text" id="playerName" placeholder="Your name" maxlength="20">
+      <div class="lobby-buttons">
+        <button id="createRoomBtn">Create Room</button>
+        <div class="join-row">
+          <input type="text" id="roomCode" placeholder="CODE" maxlength="4" style="text-transform:uppercase">
+          <button id="joinRoomBtn">Join</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="room-lobby" class="hidden">
+      <h2>Room: <span id="displayCode" class="room-code"></span></h2>
+      <p class="share-hint">Share this code with your friends</p>
+      <div id="playerList"></div>
+      <div id="host-controls" class="hidden">
+        <div class="match-config">
+          <select id="totalRounds">
+            <option value="12" selected>12 Rounds</option>
+            <option value="16">16 Rounds</option>
+            <option value="18">18 Rounds</option>
+          </select>
+          <select id="bet">
+            <option value="5000">5K / pt</option>
+            <option value="10000" selected>10K / pt</option>
+            <option value="20000">20K / pt</option>
+            <option value="30000">30K / pt</option>
+            <option value="50000">50K / pt</option>
+          </select>
+        </div>
+        <button id="startMatchBtn">Start Match</button>
+      </div>
+      <p id="waiting-host" class="hidden">Waiting for host to start...</p>
+    </div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen" class="hidden">
+  <header>
+    <h1>🂡 <span id="game-room-code"></span></h1>
+    <div id="match-info-bar">
+      <div id="round-indicator">Round 1 / 12</div>
+      <div id="cumulative-scores"></div>
+    </div>
+  </header>
+
+  <div id="opponents"></div>
+
+  <div id="table-area">
+    <div id="turn-indicator">—</div>
+    <div id="last-card-alert" class="hidden">⚠️ <span id="last-card-text"></span></div>
+    <div id="table-play">
+      <div class="label">Table Play</div>
+      <div id="table-cards" class="cards-row"></div>
+      <div id="table-type"></div>
+    </div>
+    <div id="actions">
+      <button id="playBtn" disabled>Play Selected</button>
+      <button id="passBtn" disabled>Pass</button>
+      <button id="hintBtn" disabled>Hint</button>
+    </div>
+    <div id="error-msg"></div>
+  </div>
+
+  <div id="my-hand-area">
+    <div class="my-hand-header">
+      <span id="my-name"></span>
+      <span id="my-card-count"></span>
+    </div>
+    <div id="my-hand" class="cards-row"></div>
+  </div>
+
+  <div id="stop-match-container">
+    <button id="stopMatchBtn">Stop Match</button>
+  </div>
+</div>
+
+<!-- ROUND END MODAL -->
+<div id="round-end-modal" class="hidden">
+  <div class="modal-content">
+    <h2>🏆 Round <span id="round-end-num"></span> Complete</h2>
+    <div id="round-end-body"></div>
+    <div class="modal-actions">
+      <button id="nextRoundBtn">Next Round →</button>
+      <button id="stopMatchBtn2" class="secondary">Stop Match</button>
+    </div>
+  </div>
+</div>
+
+<!-- MATCH END MODAL -->
+<div id="match-end-modal" class="hidden">
+  <div class="modal-content">
+    <h2>🏁 Match Complete</h2>
+    <div id="match-end-body"></div>
+    <button id="closeMatchEnd">Close</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
