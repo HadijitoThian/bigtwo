@@ -893,30 +893,29 @@ let musicAudio = null;
 let musicEnabled = true;
 try { musicEnabled = localStorage.getItem('bigtwo_music') !== 'off'; } catch {}
 
+// Pre-create audio element so play() can fire synchronously inside the user gesture
+try {
+  musicAudio = new Audio('/audio/lobby.mp3');
+  musicAudio.loop = true;
+  musicAudio.preload = 'auto';
+  musicAudio.volume = musicEnabled ? 0.15 : 0;
+} catch {}
+
 function startLobbyMusic() {
-  if (musicAudio) return;
+  if (!musicAudio) return;
   try {
-    musicAudio = new Audio('/audio/lobby.mp3');
-    musicAudio.loop = true;
-    musicAudio.volume = musicEnabled ? 0.15 : 0;
-    // play() returns a promise — must be called during user interaction context
-    const playPromise = musicAudio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((e) => {
-        // Browser blocked autoplay even after click — retry
-        console.warn('Music autoplay blocked:', e);
-        musicAudio = null;
-      });
+    const p = musicAudio.play();
+    if (p !== undefined) {
+      p.catch((e) => console.warn('Music autoplay blocked:', e?.name || e));
     }
-  } catch {
-    musicAudio = null;
+  } catch (e) {
+    console.warn('Music play error:', e);
   }
 }
 
 function stopLobbyMusic() {
   if (musicAudio) {
-    musicAudio.pause();
-    musicAudio = null;
+    try { musicAudio.pause(); } catch {}
   }
 }
 
@@ -925,6 +924,7 @@ window.toggleMusic = () => {
   try { localStorage.setItem('bigtwo_music', musicEnabled ? 'on' : 'off'); } catch {}
   if (musicAudio) {
     musicAudio.volume = musicEnabled ? 0.15 : 0;
+    if (musicEnabled && musicAudio.paused) startLobbyMusic();
   }
   renderMusicBtn();
 };
@@ -934,7 +934,14 @@ function renderMusicBtn() {
   document.querySelectorAll('#music-toggle-btn-lobby').forEach(b => b.textContent = icon);
 }
 
+// Start music on ANY first user interaction — call play() synchronously to keep gesture context
 let musicStarted = false;
-document.addEventListener('click', () => { if(!musicStarted){musicStarted=true;startLobbyMusic();} }, {once:true});
-document.addEventListener('keydown', () => { if(!musicStarted){musicStarted=true;startLobbyMusic();} }, {once:true});
+function tryStartMusic() {
+  if (musicStarted) return;
+  musicStarted = true;
+  startLobbyMusic();
+}
+['click', 'touchstart', 'keydown', 'pointerdown'].forEach(evt => {
+  document.addEventListener(evt, tryStartMusic, { once: true, capture: true });
+});
 renderMusicBtn();
