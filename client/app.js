@@ -261,7 +261,17 @@ els.stopMatchBtn2.onclick = () => {
   }
 };
 
-els.closeMatchEnd.onclick = () => els.matchEndModal.classList.add('hidden');
+els.closeMatchEnd.onclick = () => {
+  els.matchEndModal.classList.add('hidden');
+  try {
+    localStorage.removeItem('bigtwo_room');
+    localStorage.removeItem('bigtwo_name');
+  } catch {}
+  lastRoomCode = null;
+  lastPlayerName = null;
+  state = null;
+  render();
+};
 
 // Sound toggle (exposed globally for inline onclick)
 window.toggleSound = () => {
@@ -729,11 +739,17 @@ function renderRoundEnd() {
 
 function renderMatchEnd() {
   const names = state.playerNames;
+  const bet = state.betPerPoint || 10000;
   els.roundEndModal.classList.add('hidden');
 
-  let html = `<p>Match ended after <strong>${state.currentRound}</strong> of ${state.totalRounds} rounds.</p>`;
+  let html = `<div class="match-end-header">
+    <h2>Match Finished</h2>
+    <p class="match-end-meta">${state.currentRound} of ${state.totalRounds} rounds | ${bet.toLocaleString('id-ID')} / pt</p>
+  </div>`;
+
+  // --- FINAL STANDINGS ---
   html += `<div class="section-title">Final Standings</div>`;
-  html += `<table><tr><th>Rank</th><th>Player</th><th>Total Points</th><th>Total Money</th></tr>`;
+  html += `<table class="standings-table"><tr><th>Rank</th><th>Player</th><th>Points</th><th>Money</th></tr>`;
 
   const standings = names.map((name, i) => ({
     name, pts: state.cumulativePoints[i], money: state.cumulativeMoney[i],
@@ -742,100 +758,163 @@ function renderMatchEnd() {
   standings.forEach((s, rank) => {
     const cls = s.pts >= 0 ? 'positive' : 'negative';
     const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : `${rank + 1}.`;
-    html += `<tr><td>${medal}</td><td>${s.name}</td>
+    html += `<tr><td class="rank-col">${medal}</td><td>${s.name}</td>
       <td class="${cls}">${s.pts >= 0 ? '+' : ''}${s.pts}</td>
       <td class="${cls}">${s.pts >= 0 ? '+' : '−'}${Math.abs(s.money).toLocaleString('id-ID')}</td></tr>`;
   });
   html += `</table>`;
 
+  // --- PER-ROUND BREAKDOWN ---
   if (state.roundHistory.length > 0) {
-    html += `<div class="section-title">Round History</div>`;
-    html += `<table><tr><th>Round</th><th>Winner</th><th>Net Points</th></tr>`;
-    state.roundHistory.forEach(h => {
-      const ptsStr = h.netPoints.map(n => (n >= 0 ? '+' : '') + n).join(' / ');
-      html += `<tr><td>${h.round}</td><td>${names[h.winner]}</td><td style="font-size:12px">${ptsStr}</td></tr>`;
+    const rLen = state.roundHistory.length;
+    const rHist = state.roundHistory;
+
+    // Build per-round detail including settlement calculations
+    rHist.forEach((h, hi) => {
+      const result = h.result;
+      if (!result) return;
+
+      html += `<div class="section-title">Round ${h.round} — ${names[h.winner]} wins 🏆</div>`;
+
+      // Player leftover cards & base scores
+      html += `<table><tr><th>Player</th><th>Leftover</th><th>Score</th></tr>`;
+      const leftoverCards = result.leftoverHands || [];
+      const scores = result.scores || [];
+      let baseCount = 0;
+      let twosCount = 0;
+
+      names.forEach((name, i) => {
+        const numLeft = leftoverCards[i] ? leftoverCards[i].length : (names.length === 3 ? 17 : 13);
+        const score = scores[i] || 0;
+        let label = numLeft + ' cards';
+        // Count twos
+        if (leftoverCards[i]) {
+          const twosOnly = leftoverCards[i].filter(c => c.rank === 15);
+          if (twosOnly.length > 0) {
+            label += ' (' + twosOnly.length + 'x 2 = ' + (twosOnly.length * 10) + ')';
+          }
+        }
+        const isWinner = i === h.winner && numLeft === 0;
+        if (isWinner) label = '0 (winner!)';
+        html += `<tr>
+          <td>${name}${isWinner ? ' 🏆' : ''}</td>
+          <td>${label}</td>
+          <td class="${score > 0 ? 'negative' : ''}">${score}</td>
+        </tr>`;
+      });
+
+      // Winner bonus
+      const bonus = result.winnerBonus || (result.winnerIndex !== null ? (result.scores ? 20 : 10) : 20);
+      html += `<tr><td colspan="3" style="font-size:11px;color:#ffd54f">
+        Winner bonus: +${bonus} pts
+        ${result.penalizedPlayer !== null ? ' • ' + names[result.penalizedPlayer] + ' penalized +50 pts' : ''}
+      </td></tr>`;
+      html += `</table>`;
+
+      // Settlement — head to head
+      if (result.transactions && result.transactions.length > 0) {
+        html += `<div style="font-weight:bold;color:#ffd54f;font-size:12px;margin-top:10px">Settlement</div>`;
+        html += `<table><tr><th>From</th><th>To</th><th>Points</th><th>Money</th></tr>`;
+        result.transactions.forEach(t => {
+          const pts = t.points;
+          const money = pts * bet;
+          html += `<tr>
+            <td>${names[t.from]}</td>
+            <td>${names[t.to]}</td>
+            <td>${pts}</td>
+            <td class="negative">${money.toLocaleString('id-ID')}</td>
+          </tr>`;
+        });
+        html += `</table>`;
+      }
+
+      // Net for this round
+      html += `<table><tr><th>Player</th><th>Net Points</th><th>Net Money</th></tr>`;
+      const netPts = result.netPoints || [];
+      const netMoney = result.money || [];
+      names.forEach((name, i) => {
+        const n = netPts[i] || 0;
+        const m = netMoney[i] || 0;
+        const cls = n >= 0 ? 'positive' : 'negative';
+        html += `<tr>
+          <td>${name}</td>
+          <td class="${cls}">${n >= 0 ? '+' : ''}${n}</td>
+          <td class="${cls}">${n >= 0 ? '+' : '−'}${Math.abs(m).toLocaleString('id-ID')}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+    });
+
+    // Cumulative table (all rounds combined)
+    html += `<div class="section-title">Cumulative (All Rounds)</div>`;
+    html += `<table><tr><th>Player</th><th>Total Points</th><th>Total Money</th></tr>`;
+    state.cumulativePoints.forEach((n, i) => {
+      const cls = n >= 0 ? 'positive' : 'negative';
+      const m = state.cumulativeMoney[i] || 0;
+      html += `<tr><td>${names[i]}</td>
+        <td class="${cls}">${n >= 0 ? '+' : ''}${n}</td>
+        <td class="${cls}">${n >= 0 ? '+' : '−'}${Math.abs(m).toLocaleString('id-ID')}</td></tr>`;
     });
     html += `</table>`;
   }
 
+  html += `<div class="match-end-footer">
+    <button id="matchEndReturnBtn">Return to Lobby</button>
+  </div>`;
+
   els.matchEndBody.innerHTML = html;
   els.matchEndModal.classList.remove('hidden');
+
+  // Wire return button
+  setTimeout(() => {
+    const btn = $('matchEndReturnBtn');
+    if (btn) {
+      btn.onclick = () => {
+        els.matchEndModal.classList.add('hidden');
+        // Clear localStorage so they don't auto-reconnect to finished match
+        try {
+          localStorage.removeItem('bigtwo_room');
+          localStorage.removeItem('bigtwo_name');
+        } catch {}
+        lastRoomCode = null;
+        lastPlayerName = null;
+        state = null;
+        render();
+      };
+    }
+  }, 100);
 }
 
 render();
 renderSoundBtn();
 
 // ===== LOBBY MUSIC =====
-let musicNode = null;
-let musicGain = null;
+let musicAudio = null;
 let musicEnabled = true;
 try { musicEnabled = localStorage.getItem('bigtwo_music') !== 'off'; } catch {}
 
 function startLobbyMusic() {
-  if (musicNode) return;
+  if (musicAudio) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    musicGain = ctx.createGain();
-    musicGain.gain.setValueAtTime(musicEnabled ? 0.06 : 0, ctx.currentTime);
-    musicGain.connect(ctx.destination);
-
-    // Smooth jazz progression with proper instrumentation
-    // Using triangle waves for soft piano-like tones + sine for bass
-    const chordDuration = 6; // slower, more relaxed
-    const chords = [
-      { name: 'Cmaj9', notes: [261.6, 329.6, 392.0, 493.9, 587.3], bass: 130.8 },
-      { name: 'Am9', notes: [220.0, 261.6, 329.6, 392.0, 493.9], bass: 110.0 },
-      { name: 'Dm9', notes: [293.7, 349.2, 440.0, 523.3, 659.3], bass: 146.8 },
-      { name: 'G13', notes: [392.0, 493.9, 587.3, 698.5, 880.0], bass: 196.0 },
-      { name: 'Fmaj7', notes: [349.2, 440.0, 523.3, 659.3, 784.0], bass: 174.6 },
-      { name: 'Em7', notes: [329.6, 392.0, 493.9, 587.3, 740.0], bass: 164.8 },
-    ];
-
-    let idx = 0;
-    const playChord = () => {
-      const chord = chords[idx];
-      idx = (idx + 1) % chords.length;
-      // Bass note (deep sine)
-      const bO = ctx.createOscillator();
-      const bG = ctx.createGain();
-      bO.type = 'sine';
-      bO.frequency.value = chord.bass;
-      bG.gain.setValueAtTime(0.04, ctx.currentTime + 0.1);
-      bG.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + chordDuration - 0.5);
-      bO.connect(bG); bG.connect(musicGain);
-      bO.start(ctx.currentTime); bO.stop(ctx.currentTime + chordDuration);
-
-      // Chord notes (soft triangle = piano-like)
-      chord.notes.forEach((freq, i) => {
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = i < 2 ? 'triangle' : 'sine';
-        o.frequency.value = freq;
-        g.gain.setValueAtTime(0.012 + i * 0.002, ctx.currentTime + 0.1 + i * 0.03);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + chordDuration - 0.3);
-        o.connect(g); g.connect(musicGain);
-        o.start(ctx.currentTime); o.stop(ctx.currentTime + chordDuration);
-      });
-    };
-    playChord();
-    musicNode = setInterval(playChord, chordDuration * 1000);
+    musicAudio = new Audio('/audio/lobby.mp3');
+    musicAudio.loop = true;
+    musicAudio.volume = musicEnabled ? 0.15 : 0;
+    musicAudio.play().catch(() => {});
   } catch {}
 }
 
 function stopLobbyMusic() {
-  if (musicNode) { clearInterval(musicNode); musicNode = null; }
-  musicGain = null;
+  if (musicAudio) {
+    musicAudio.pause();
+    musicAudio = null;
+  }
 }
 
 window.toggleMusic = () => {
   musicEnabled = !musicEnabled;
   try { localStorage.setItem('bigtwo_music', musicEnabled ? 'on' : 'off'); } catch {}
-  if (musicGain) {
-    try {
-      const val = musicEnabled ? 0.06 : 0;
-      musicGain.gain.cancelScheduledValues(musicGain.context.currentTime);
-      musicGain.gain.setValueAtTime(val, musicGain.context.currentTime);
-    } catch {}
+  if (musicAudio) {
+    musicAudio.volume = musicEnabled ? 0.15 : 0;
   }
   renderMusicBtn();
 };

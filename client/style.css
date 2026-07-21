@@ -474,6 +474,32 @@ button.secondary { background: #455a64; color: #fff; }
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+.match-end-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.match-end-header h2 {
+  margin: 0 0 4px;
+  color: #ffd54f;
+  font-size: 22px;
+}
+.match-end-meta {
+  font-size: 13px;
+  opacity: 0.6;
+  margin: 0;
+}
+.standings-table td { padding: 6px 8px; }
+.rank-col { font-size: 18px; text-align: center; width: 40px; }
+.match-end-footer {
+  margin-top: 20px;
+  text-align: center;
+}
+.match-end-footer button {
+  padding: 14px 40px;
+  font-size: 16px;
+  background: #ffb300;
+  color: #222;
+}
 .modal-actions {
   display: flex;
   gap: 12px;
