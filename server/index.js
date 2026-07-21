@@ -220,15 +220,40 @@ io.on('connection', (socket) => {
     socket.emit('profileList', listProfiles());
   });
 
-  socket.on('updateProfile', ({ name, avatarSeed, avatarStyle, color } = {}) => {
+  socket.on('updateProfile', ({ name, avatarSeed, avatarStyle, color, avatarImage } = {}) => {
     if (!name?.trim()) return;
-    const profile = saveProfile({ name, avatarSeed, avatarStyle, color });
+    // Guard against oversized uploads (~200KB base64 max)
+    if (typeof avatarImage === 'string' && avatarImage.length > 200_000) {
+      socket.emit('error', 'Image too large — try a smaller one');
+      return;
+    }
+    const profile = saveProfile({ name, avatarSeed, avatarStyle, color, avatarImage });
     socket.emit('profile', profile);
-    // Also update in room if they're in one
     const room = manager.findRoomBySocket(socket.id);
     if (room) {
       if (!room.playerProfiles) room.playerProfiles = {};
       room.playerProfiles[name] = profile;
+      broadcastRoom(room);
+    }
+  });
+
+  socket.on('leaveRoom', () => {
+    const room = manager.findRoomBySocket(socket.id);
+    if (!room) {
+      socket.emit('state', { state: 'NO_ROOM' });
+      return;
+    }
+    if (room.match && room.match.state !== 'FINISHED') {
+      // In active match — soft-disconnect instead of full leave
+      room.removePlayer(socket.id);
+    } else {
+      room.leavePlayer(socket.id);
+    }
+    socket.emit('state', { state: 'NO_ROOM' });
+    if (room.players.length === 0) {
+      manager.rooms.delete(room.code);
+      console.log(`Room ${room.code} deleted (empty after leave)`);
+    } else {
       broadcastRoom(room);
     }
   });

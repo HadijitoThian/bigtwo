@@ -27,9 +27,14 @@ export function getProfile(name) {
   } catch { return null; }
 }
 
-export function saveProfile({ name, avatarSeed = '', avatarStyle = 'bottts', color = '#ffb300' }) {
+export function saveProfile({ name, avatarSeed = '', avatarStyle = 'bottts', color = '#ffb300', avatarImage = null }) {
   const file = join(DATA_DIR, `profile_${safeFilename(name)}.json`);
-  const profile = { name, avatarSeed, avatarStyle, color };
+  const existing = getProfile(name) || {};
+  // Preserve existing avatarImage if not explicitly overwritten with a new one or cleared with ''
+  const image = avatarImage === null ? (existing.avatarImage || null)
+              : avatarImage === '' ? null
+              : avatarImage;
+  const profile = { name, avatarSeed, avatarStyle, color, avatarImage: image };
   writeFileSync(file, JSON.stringify(profile, null, 2));
   return profile;
 }

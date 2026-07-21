@@ -1,5 +1,6 @@
 import { playCardSound, playTurnSound, playWinSound, playErrorSound, playTimerWarningSound, playClapSound, playLoserSound } from './sounds.js';
 import { playDealAnimation } from './deal.js';
+import { startJazz, stopJazz, setJazzVolume, isJazzRunning } from './jazz.js';
 
 // ===== SOUND TOGGLE =====
 let soundEnabled = true;
@@ -143,11 +144,13 @@ const RANK_LABEL = {
   11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2'
 };
 
-// DiceBear avatar URL helpers
-function avatarUrl(seed, style = 'bottts') {
+// DiceBear avatar URL helpers — if profile has a custom uploaded image, prefer it
+function avatarUrl(seed, style = 'bottts', profile = null) {
+  if (profile?.avatarImage) return profile.avatarImage;
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=48`;
 }
-function avatarUrlBig(seed, style = 'bottts') {
+function avatarUrlBig(seed, style = 'bottts', profile = null) {
+  if (profile?.avatarImage) return profile.avatarImage;
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=120`;
 }
 
@@ -304,28 +307,92 @@ const profileAvatarPreview = $('profile-avatar-preview');
 const avatarStyleGrid = $('avatar-style-grid');
 const saveProfileBtn = $('save-profile-btn');
 const profileSettingsBtn = $('profile-settings-btn');
+const profileImageInput = $('profile-image-input');
+const clearImageBtn = $('clear-image-btn');
+const closeProfileBtn = $('close-profile-btn');
+const menuProfileBadge = $('menu-profile-badge');
+const menuProfileAvatar = $('menu-profile-avatar');
+const menuProfileName = $('menu-profile-name');
 
-profileSettingsBtn.onclick = () => {
-  profileNameField.value = myName || '';
+// Local editing state (staged before Save)
+let editingAvatarImage = null; // '' means clear; null means "use current"; data-url means new
+
+profileSettingsBtn.onclick = openProfileModal;
+menuProfileBadge.onclick = openProfileModal;
+
+function openProfileModal() {
+  profileNameField.value = myName || profileData?.name || '';
   selectedAvatarStyle = profileData?.avatarStyle || 'bottts';
+  editingAvatarImage = null;
   renderAvatarStyles();
   updateProfilePreview();
+  updateClearBtn();
   profileModal.classList.remove('hidden');
-};
+}
+
+if (closeProfileBtn) closeProfileBtn.onclick = () => profileModal.classList.add('hidden');
 
 saveProfileBtn.onclick = () => {
   const name = profileNameField.value.trim();
   if (!name) return;
   myName = name;
   els.playerName.value = name;
-  socket.emit('updateProfile', {
+  const payload = {
     name,
     avatarSeed: profileData?.avatarSeed || name,
     avatarStyle: selectedAvatarStyle,
     color: '#ffb300',
-  });
+  };
+  // Only include avatarImage when user actually changed it this session
+  if (editingAvatarImage !== null) payload.avatarImage = editingAvatarImage;
+  socket.emit('updateProfile', payload);
   profileModal.classList.add('hidden');
 };
+
+// Image upload — resize to 128x128 JPEG, base64 encode
+profileImageInput.onchange = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Image too large (max 5MB)');
+    profileImageInput.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const SIZE = 128;
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      // Cover-fit crop to square
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+      editingAvatarImage = canvas.toDataURL('image/jpeg', 0.82);
+      updateProfilePreview();
+      updateClearBtn();
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+  profileImageInput.value = '';
+};
+
+clearImageBtn.onclick = () => {
+  editingAvatarImage = ''; // signal server to wipe
+  updateProfilePreview();
+  updateClearBtn();
+};
+
+function updateClearBtn() {
+  const hasImage = editingAvatarImage === '' ? false
+                 : editingAvatarImage != null ? true
+                 : !!profileData?.avatarImage;
+  clearImageBtn.style.display = hasImage ? 'inline-block' : 'none';
+}
 
 function renderAvatarStyles() {
   avatarStyleGrid.innerHTML = '';
@@ -338,8 +405,12 @@ function renderAvatarStyles() {
     div.title = style;
     div.onclick = () => {
       selectedAvatarStyle = style;
+      // Picking a style clears any pending image so the style takes effect
+      if (editingAvatarImage == null && profileData?.avatarImage) editingAvatarImage = '';
+      else if (editingAvatarImage) editingAvatarImage = '';
       renderAvatarStyles();
       updateProfilePreview();
+      updateClearBtn();
     };
     avatarStyleGrid.appendChild(div);
   });
@@ -347,12 +418,34 @@ function renderAvatarStyles() {
 
 function updateProfilePreview() {
   const seed = profileData?.avatarSeed || myName || 'default';
-  profileAvatarPreview.src = avatarUrlBig(seed, selectedAvatarStyle);
+  // Preview shows what will be saved
+  if (editingAvatarImage) {
+    profileAvatarPreview.src = editingAvatarImage;
+  } else if (editingAvatarImage === '') {
+    profileAvatarPreview.src = avatarUrlBig(seed, selectedAvatarStyle);
+  } else if (profileData?.avatarImage) {
+    profileAvatarPreview.src = profileData.avatarImage;
+  } else {
+    profileAvatarPreview.src = avatarUrlBig(seed, selectedAvatarStyle);
+  }
+}
+
+function updateMenuProfileBadge() {
+  const seed = profileData?.avatarSeed || myName || 'guest';
+  const style = profileData?.avatarStyle || 'bottts';
+  menuProfileAvatar.src = avatarUrl(seed, style, profileData);
+  menuProfileName.textContent = profileData?.name || myName || 'Guest';
 }
 
 socket.on('profile', (p) => {
-  if (p) profileData = p;
+  if (p) {
+    profileData = p;
+    updateMenuProfileBadge();
+  }
 });
+
+// Initial menu badge (uses default DiceBear until profile loads)
+updateMenuProfileBadge();
 
 // Load profile on startup when name changes
 const origCreateRoom = els.createRoomBtn.onclick;
@@ -384,23 +477,63 @@ els.chatSendBtn.onclick = () => {
   socket.emit('chatMessage', { message: msg });
   els.chatInput.value = '';
 };
+
+// Leave Room button
+const leaveRoomBtn = $('leaveRoomBtn');
+if (leaveRoomBtn) {
+  leaveRoomBtn.onclick = () => {
+    if (!confirm('Leave this room?')) return;
+    socket.emit('leaveRoom');
+    try {
+      localStorage.removeItem('bigtwo_room');
+      localStorage.removeItem('bigtwo_name');
+    } catch {}
+    lastRoomCode = null;
+    lastPlayerName = null;
+    els.chatMessages.innerHTML = '';
+  };
+}
 els.chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') els.chatSendBtn.click();
 });
 
-// ===== CHAT MOBILE TOGGLE =====
-$('chat-toggle-btn').onclick = () => {
-  $('chat-sidebar').classList.add('open');
-  $('chat-toggle-btn').style.display = 'none';
+// ===== CHAT VISIBILITY =====
+// Chat is available whenever the player is in a room (lobby or match)
+const chatSidebar = $('chat-sidebar');
+const chatToggleBtn = $('chat-toggle-btn');
+
+chatToggleBtn.onclick = () => {
+  chatSidebar.classList.remove('hidden');
+  chatSidebar.classList.add('open');
+  chatToggleBtn.classList.add('hidden');
 };
 $('chat-close-btn').onclick = () => {
-  $('chat-sidebar').classList.remove('open');
-  $('chat-toggle-btn').style.display = '';
+  chatSidebar.classList.remove('open');
+  chatSidebar.classList.add('hidden');
+  chatToggleBtn.classList.remove('hidden');
 };
-// On desktop, ensure chat is visible
-if (window.innerWidth >= 769) {
-  $('chat-sidebar').style.display = 'flex';
+
+function setChatVisibility(inRoom) {
+  if (inRoom) {
+    if (window.innerWidth >= 769) {
+      // Desktop: always show sidebar
+      chatSidebar.classList.remove('hidden');
+      chatSidebar.classList.add('open');
+      chatToggleBtn.classList.add('hidden');
+    } else {
+      // Mobile: show toggle button, sidebar hidden until tapped
+      chatToggleBtn.classList.remove('hidden');
+    }
+  } else {
+    chatSidebar.classList.remove('open');
+    chatSidebar.classList.add('hidden');
+    chatToggleBtn.classList.add('hidden');
+  }
 }
+window.addEventListener('resize', () => {
+  const inRoom = !!state?.code;
+  setChatVisibility(inRoom);
+});
 
 socket.on('chatMessage', (msg) => {
   if (!msg) return;
@@ -479,6 +612,9 @@ socket.on('state', (s) => {
   }
 
   render();
+
+  // Chat is shown whenever the player is in a room
+  setChatVisibility(!!s.code);
 
   // ===== DEAL ANIMATION =====
   // Trigger on: first round (lobby -> playing) or new round (round_end -> playing)
@@ -576,7 +712,7 @@ function render() {
       const div = document.createElement('div');
       div.className = 'player-item';
       const profile = p.profile || {};
-      const avaUrl = avatarUrl(profile.avatarSeed || p.name, profile.avatarStyle || 'bottts');
+      const avaUrl = avatarUrl(profile.avatarSeed || p.name, profile.avatarStyle || 'bottts', profile);
       div.innerHTML = `
         <img src="${avaUrl}" class="player-avatar" alt="">
         <span>${p.name}</span>
@@ -636,7 +772,7 @@ function render() {
     const playerInfo = state.players.find(p => p.index === i);
     const isConnected = playerInfo ? playerInfo.connected : true;
     const profile = playerInfo?.profile || {};
-    const avaUrl = avatarUrl(profile.avatarSeed || name, profile.avatarStyle || 'bottts');
+    const avaUrl = avatarUrl(profile.avatarSeed || name, profile.avatarStyle || 'bottts', profile);
 
     let badges = '';
     if (g.passed.includes(i)) badges += '<span class="badge pass">passed</span>';
@@ -890,58 +1026,33 @@ function renderMatchEnd() {
 render();
 renderSoundBtn();
 
-// ===== LOBBY MUSIC =====
-let musicAudio = null;
+// ===== LOBBY JAZZ MUSIC (procedural, always works) =====
 let musicEnabled = true;
 try { musicEnabled = localStorage.getItem('bigtwo_music') !== 'off'; } catch {}
-
-// Pre-create audio element so play() can fire synchronously inside the user gesture
-try {
-  musicAudio = new Audio('/audio/lobby.mp3');
-  musicAudio.loop = true;
-  musicAudio.preload = 'auto';
-  musicAudio.volume = musicEnabled ? 0.15 : 0;
-} catch {}
-
-function startLobbyMusic() {
-  if (!musicAudio) return;
-  try {
-    const p = musicAudio.play();
-    if (p !== undefined) {
-      p.catch((e) => console.warn('Music autoplay blocked:', e?.name || e));
-    }
-  } catch (e) {
-    console.warn('Music play error:', e);
-  }
-}
-
-function stopLobbyMusic() {
-  if (musicAudio) {
-    try { musicAudio.pause(); } catch {}
-  }
-}
 
 window.toggleMusic = () => {
   musicEnabled = !musicEnabled;
   try { localStorage.setItem('bigtwo_music', musicEnabled ? 'on' : 'off'); } catch {}
-  if (musicAudio) {
-    musicAudio.volume = musicEnabled ? 0.15 : 0;
-    if (musicEnabled && musicAudio.paused) startLobbyMusic();
+  if (musicEnabled) {
+    setJazzVolume(0.18);
+    if (!isJazzRunning()) startJazz();
+  } else {
+    stopJazz();
   }
   renderMusicBtn();
 };
 
 function renderMusicBtn() {
-  const icon = musicEnabled ? '🎵' : '🔇';
+  const icon = musicEnabled ? '🎷' : '🔇';
   document.querySelectorAll('#music-toggle-btn-lobby').forEach(b => b.textContent = icon);
 }
 
-// Start music on ANY first user interaction — call play() synchronously to keep gesture context
+// Start on first user interaction (browser autoplay policy)
 let musicStarted = false;
 function tryStartMusic() {
   if (musicStarted) return;
   musicStarted = true;
-  startLobbyMusic();
+  if (musicEnabled) startJazz();
 }
 ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(evt => {
   document.addEventListener(evt, tryStartMusic, { once: true, capture: true });

@@ -43,6 +43,19 @@ export class Room {
     if (p) p.connected = false;
   }
 
+  // Fully remove a player and re-index the remaining ones.
+  // Safe only when a match is not in progress.
+  leavePlayer(socketId) {
+    const idx = this.players.findIndex(p => p.socketId === socketId);
+    if (idx === -1) return false;
+    this.players.splice(idx, 1);
+    this.players.forEach((p, i) => { p.index = i; });
+    if (this.hostSocketId === socketId && this.players.length > 0) {
+      this.hostSocketId = this.players[0].socketId;
+    }
+    return true;
+  }
+
   reconnectPlayer(socketId, oldSocketId) {
     const p = this.players.find(p => p.socketId === oldSocketId);
     if (p) {

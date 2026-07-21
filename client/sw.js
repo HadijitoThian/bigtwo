@@ -1,7 +1,6 @@
-const CACHE_NAME = 'bigtwo-v4';
+const CACHE_NAME = 'bigtwo-v5';
 const PRECACHE_URLS = [
   '/manifest.json',
-  '/audio/lobby.mp3',
   '/img/bg-table.jpg',
   '/img/icon-192.png',
   '/img/icon-512.png',

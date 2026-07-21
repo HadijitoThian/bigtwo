@@ -522,7 +522,7 @@ button.secondary { background: #455a64; color: #fff; }
   .opponent .opp-count { font-size: 16px; }
   #game-screen { flex-direction: column; }
 
-  /* Chat as full overlay on mobile */
+  /* Chat as full overlay on mobile — only visible when .open (and not .hidden) */
   #chat-sidebar {
     position: fixed;
     right: 0;
@@ -532,9 +532,8 @@ button.secondary { background: #455a64; color: #fff; }
     max-width: 400px;
     border-radius: 0;
     z-index: 200;
-    display: none;
   }
-  #chat-sidebar.open { display: flex; }
+  #chat-sidebar:not(.open) { display: none; }
   #chat-header .close-chat { display: block; }
 
   /* Chat floating toggle button */
@@ -572,11 +571,87 @@ button.secondary { background: #455a64; color: #fff; }
   }
 }
 
-/* Desktop: hide mobile toggle */
+/* Desktop: hide mobile toggle (JS still controls visibility via .hidden) */
 @media (min-width: 769px) {
   #chat-toggle-btn { display: none; }
-  #chat-sidebar { display: flex; }
+  /* On desktop, place chat sidebar as fixed panel on the right */
+  #chat-sidebar:not(.hidden) {
+    position: fixed;
+    right: 12px;
+    top: 12px;
+    width: 260px;
+    height: calc(100vh - 24px);
+    z-index: 150;
+  }
 }
+
+/* Menu profile badge (top of lobby) */
+.menu-profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: background 0.15s;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.menu-profile-badge:hover { background: rgba(255,255,255,0.12); }
+.menu-profile-badge img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255,255,255,0.05);
+}
+.menu-profile-badge span {
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Profile modal upload section */
+.profile-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.upload-label {
+  display: inline-block;
+  padding: 8px 14px;
+  background: rgba(255,179,0,0.15);
+  color: #ffb300;
+  border: 1px dashed rgba(255,179,0,0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.upload-label:hover { background: rgba(255,179,0,0.25); }
+#profile-avatar-preview {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Leave room button */
+#leaveRoomBtn {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  padding: 8px 16px;
+}
+#leaveRoomBtn:hover { background: rgba(211,47,47,0.3); color: #fff; }
 
 /* Chat sidebar */
 #chat-sidebar {

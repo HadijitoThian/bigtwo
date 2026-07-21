@@ -26,6 +26,10 @@
     <button id="music-toggle-btn-lobby" class="icon-btn" style="margin-bottom:12px;margin-left:4px" onclick="window.toggleMusic?.()" title="Background music">🎵</button>
 
     <div id="join-section">
+      <div id="menu-profile-badge" class="menu-profile-badge" title="Profile Settings">
+        <img id="menu-profile-avatar" src="" alt="">
+        <span id="menu-profile-name">Guest</span>
+      </div>
       <input type="text" id="playerName" placeholder="Your name" maxlength="20">
       <div class="lobby-buttons">
         <button id="createRoomBtn">Create Room</button>
@@ -42,6 +46,7 @@
       <p class="share-hint">Share this code with your friends</p>
       <div id="playerList"></div>
       <div id="lobby-error" style="color:#ff8a80;font-size:13px;min-height:18px;margin:8px 0;"></div>
+      <button id="leaveRoomBtn" class="secondary" style="margin-bottom:10px">← Leave Room</button>
       <div id="host-controls" class="hidden">
         <div class="match-config">
           <select id="totalRounds">
@@ -113,21 +118,21 @@
     <button id="stopMatchBtn">Stop Match</button>
   </div>
   </div><!-- /game-main -->
-
-  <!-- Chat -->
-  <div id="chat-sidebar">
-    <div id="chat-header">
-      <span>Chat</span>
-      <button class="close-chat" id="chat-close-btn">✕</button>
-    </div>
-    <div id="chat-messages"></div>
-    <div id="chat-input-row">
-      <input type="text" id="chat-input" placeholder="Type a message..." maxlength="300">
-      <button id="chat-send-btn">Send</button>
-    </div>
-  </div>
-  <button id="chat-toggle-btn" title="Open chat">💬</button>
 </div>
+
+<!-- Chat (available in lobby room AND during match) -->
+<div id="chat-sidebar" class="hidden">
+  <div id="chat-header">
+    <span>Chat</span>
+    <button class="close-chat" id="chat-close-btn">✕</button>
+  </div>
+  <div id="chat-messages"></div>
+  <div id="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Type a message..." maxlength="300">
+    <button id="chat-send-btn">Send</button>
+  </div>
+</div>
+<button id="chat-toggle-btn" class="hidden" title="Open chat">💬</button>
 
 <!-- ROUND END MODAL -->
 <div id="round-end-modal" class="hidden">
@@ -159,11 +164,17 @@
         <p class="profile-hint">Your name and avatar stay saved across sessions</p>
       </div>
     </div>
+    <div class="profile-upload">
+      <label class="upload-label" for="profile-image-input">📷 Upload your own picture</label>
+      <input type="file" id="profile-image-input" accept="image/*" style="display:none">
+      <button id="clear-image-btn" class="secondary" style="font-size:12px;padding:4px 10px;display:none">Remove uploaded picture</button>
+    </div>
     <div class="profile-styles">
-      <label>Avatar Style:</label>
+      <label>Or pick an avatar style:</label>
       <div id="avatar-style-grid"></div>
     </div>
     <button id="save-profile-btn">Save Profile</button>
+    <button id="close-profile-btn" class="secondary" style="margin-top:8px">Cancel</button>
   </div>
 </div>
 
