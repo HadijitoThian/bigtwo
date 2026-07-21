@@ -261,17 +261,19 @@ els.stopMatchBtn2.onclick = () => {
   }
 };
 
-els.closeMatchEnd.onclick = () => {
-  els.matchEndModal.classList.add('hidden');
-  try {
-    localStorage.removeItem('bigtwo_room');
-    localStorage.removeItem('bigtwo_name');
-  } catch {}
-  lastRoomCode = null;
-  lastPlayerName = null;
-  state = null;
-  render();
-};
+if (els.closeMatchEnd) {
+  els.closeMatchEnd.onclick = () => {
+    els.matchEndModal.classList.add('hidden');
+    try {
+      localStorage.removeItem('bigtwo_room');
+      localStorage.removeItem('bigtwo_name');
+    } catch {}
+    lastRoomCode = null;
+    lastPlayerName = null;
+    state = null;
+    render();
+  };
+}
 
 // Sound toggle (exposed globally for inline onclick)
 window.toggleSound = () => {
