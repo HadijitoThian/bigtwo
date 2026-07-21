@@ -491,6 +491,10 @@ if (leaveRoomBtn) {
     lastRoomCode = null;
     lastPlayerName = null;
     els.chatMessages.innerHTML = '';
+    lastChatSender = null;
+    lastChatTime = 0;
+    unreadChatCount = 0;
+    updateChatBadge();
   };
 }
 els.chatInput.addEventListener('keydown', (e) => {
@@ -506,6 +510,8 @@ chatToggleBtn.onclick = () => {
   chatSidebar.classList.remove('hidden');
   chatSidebar.classList.add('open');
   chatToggleBtn.classList.add('hidden');
+  unreadChatCount = 0;
+  updateChatBadge();
 };
 $('chat-close-btn').onclick = () => {
   chatSidebar.classList.remove('open');
@@ -535,17 +541,65 @@ window.addEventListener('resize', () => {
   setChatVisibility(inRoom);
 });
 
+// ===== CHAT RENDERING (bubbles, grouped, XSS-safe) =====
+let lastChatSender = null;
+let lastChatTime = 0;
+let unreadChatCount = 0;
+
+function updateChatBadge() {
+  const badge = chatToggleBtn.querySelector('.chat-badge') || (() => {
+    const b = document.createElement('span');
+    b.className = 'chat-badge';
+    chatToggleBtn.appendChild(b);
+    return b;
+  })();
+  if (unreadChatCount > 0) {
+    badge.textContent = unreadChatCount > 9 ? '9+' : unreadChatCount;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 socket.on('chatMessage', (msg) => {
   if (!msg) return;
-  const div = document.createElement('div');
-  div.className = 'chat-msg';
-  div.innerHTML = `
-    <span class="chat-sender p${msg.fromIndex}">${msg.from}</span>
-    <span class="chat-time">${msg.time}</span><br>
-    <span class="chat-text">${msg.text}</span>
-  `;
-  els.chatMessages.appendChild(div);
+  const isMine = msg.from === myName;
+  const now = Date.now();
+  // Group with previous message if same sender within 60s
+  const shouldGroup = lastChatSender === msg.from && (now - lastChatTime) < 60000;
+  lastChatSender = msg.from;
+  lastChatTime = now;
+
+  const row = document.createElement('div');
+  row.className = 'chat-row' + (isMine ? ' mine' : ' other') + (shouldGroup ? ' grouped' : '');
+
+  if (!shouldGroup && !isMine) {
+    const meta = document.createElement('div');
+    meta.className = `chat-meta p${msg.fromIndex}`;
+    meta.textContent = msg.from;
+    row.appendChild(meta);
+  }
+
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble' + (isMine ? '' : ` p${msg.fromIndex}-bubble`);
+  const textEl = document.createElement('span');
+  textEl.className = 'chat-text';
+  textEl.textContent = msg.text; // safe — no innerHTML on user input
+  bubble.appendChild(textEl);
+  const timeEl = document.createElement('span');
+  timeEl.className = 'chat-time';
+  timeEl.textContent = msg.time;
+  bubble.appendChild(timeEl);
+  row.appendChild(bubble);
+
+  els.chatMessages.appendChild(row);
   els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+
+  // Unread badge when sidebar is hidden (mobile with panel closed)
+  if (!isMine && chatSidebar.classList.contains('hidden')) {
+    unreadChatCount++;
+    updateChatBadge();
+  }
 });
 
 // ===== SOCKET EVENTS =====
