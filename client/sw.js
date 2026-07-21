@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bigtwo-v1';
+const CACHE_NAME = 'bigtwo-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
