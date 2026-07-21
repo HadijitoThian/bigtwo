@@ -899,8 +899,18 @@ function startLobbyMusic() {
     musicAudio = new Audio('/audio/lobby.mp3');
     musicAudio.loop = true;
     musicAudio.volume = musicEnabled ? 0.15 : 0;
-    musicAudio.play().catch(() => {});
-  } catch {}
+    // play() returns a promise — must be called during user interaction context
+    const playPromise = musicAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((e) => {
+        // Browser blocked autoplay even after click — retry
+        console.warn('Music autoplay blocked:', e);
+        musicAudio = null;
+      });
+    }
+  } catch {
+    musicAudio = null;
+  }
 }
 
 function stopLobbyMusic() {
