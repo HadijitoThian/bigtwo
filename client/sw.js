@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bigtwo-v2';
+const CACHE_NAME = 'bigtwo-v3';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -25,14 +25,18 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: clean old caches
+// Activate: clean old caches, take control immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
+    (async () => {
+      // Clean old caches
+      const keys = await caches.keys();
+      await Promise.all(
         keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       );
-    }).then(() => self.clients.claim())
+      // Take control of all clients immediately
+      await self.clients.claim();
+    })()
   );
 });
 
